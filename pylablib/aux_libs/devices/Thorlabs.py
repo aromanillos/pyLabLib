@@ -173,6 +173,16 @@ class KinesisError(RuntimeError):
 class KinesisTimeoutError(KinesisError):
     """Kinesis timeout error."""
 
+def list_kinesis_devices(filter_ids=True):
+    """
+    List all Thorlabs Kinesis devices connected ot this PC.
+
+    Return list of tuples ``(conn, description)``.
+        If ``filter_ids==True``, only leave devices with Tholabs-like IDs (8-digit numbers).
+        Otherwise, show all devices (some of them might not be Thorlabs-related).
+    """
+    return KinesisDevice.list_devices(filter_ids=filter_ids)
+
 class KinesisDevice(backend.IBackendWrapper):
     """
     Generic Kinesis device.
@@ -326,7 +336,7 @@ class MFF(KinesisDevice):
 
         Return ``None`` if the mount is current moving.
         """
-        self.send_comm_nodata(0x0429)
+        self.send_comm_nodata(0x0429,channel)
         data=self.recv_comm_data().data
         status=strpack.unpack_uint(data[2:6],"<")
         if status&0x01: # low limit
@@ -401,7 +411,7 @@ class KDC101(KinesisDevice):
                 return
             if ctd.passed():
                 raise KinesisTimeoutError
-            time.sleep(0.05)
+            time.sleep(period)
 
     def home(self, sync=True, force=False, timeout=None):
         """

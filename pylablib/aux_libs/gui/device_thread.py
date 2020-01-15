@@ -209,6 +209,17 @@ class RemoteDeviceThread(DeviceThread):
             return rpyc_utils.obtain(obj,serv=self.rpyc_serv)
         return obj
 
+    def finalize_task(self):
+        DeviceThread.finalize_task(self)
+        rpyc_serv=self.rpyc_serv
+        self.device=None
+        self.rpyc_serv=None
+        if rpyc_serv is not None:
+            try:
+                rpyc_serv.getconn().close()
+            except EOFError:
+                pass
+        
     def get_settings(self):
         return self.rpyc_obtain(self.device.get_settings()) if self.device is not None else {}
     def update_full_info(self):

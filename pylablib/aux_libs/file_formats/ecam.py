@@ -1,4 +1,4 @@
-from ...core.utils import py3, general, funcargparse
+from ...core.utils import py3, general, funcargparse, files as file_utils
 from ...core.devio import data_format
 from ...core.fileio import binio
 
@@ -411,7 +411,7 @@ class ECamReader(object):
     """
     def __init__(self, path, same_size=False, return_format="frame", formatter=None):
         object.__init__(self)
-        self.path=path
+        self.path=file_utils.normalize_path(path)
         self.frame_offsets=[0]
         self.frames_num=None
         self.same_size=same_size

@@ -359,10 +359,22 @@ class ImageView(QtWidgets.QWidget):
         params.v["vlinepos"]=self.imgVLine.getPos()[0]
         params.v["hlinepos"]=self.imgHLine.getPos()[1]
         self._update_linecut_boundaries(params)
+    def _get_min_nonzero(self, img, default=0):
+        img=img[img!=0]
+        return default if np.all(np.isnan(img)) else np.nanmin(img)
     def _sanitize_img(self, img): # PyQtGraph histogram has an unfortunate failure mode (crashing) when the whole image has the same value
+        """Make first image pixel different from any other pixel"""
         img=img.copy().astype(float)
-        img_span=img.max()-img.min()
-        img[0,0]+=img_span*1E-5 if img_span>0 else 1E-5
+        if np.isnan(img[0,0]):
+            if np.all(np.isnan(img)):
+                img[0,0]=0
+            else:
+                minval=np.nanmin(img)
+                mindiff=self._get_min_nonzero(img-minval)
+                img[0,0]=minval+mindiff*0.5 if mindiff>0 else minval+1
+        else:
+            mindiff=self._get_min_nonzero(np.abs(img-img[0,0]))
+            img[0,0]=img[0,0]+mindiff*0.5 if mindiff>0 else img[0,0]+1
         return img
     # Update image plot
     @controller.exsafe

@@ -184,11 +184,17 @@ def run_device_service(port=18812, verbose=False):
     """Start :class:`DeviceService` at the given port"""
     rpyc.ThreadedServer(rpyc.utils.helpers.classpartial(DeviceService,verbose=verbose),port=port).start()
 
-def connect_device_service(addr, port=18812):
-    """Connect to the :class:`DeviceService` running at the given address and port"""
+def connect_device_service(addr, port=18812, timeout=3, attempts=2):
+    """
+    Connect to the :class:`DeviceService` running at the given address and port
+    
+    `timeout` and `attempts` define respectively timeout of a sincle connection attempt, and the number of attempts
+    (RPyC default is 3 seconds timeout and 6 attempts).
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         try:
-            return rpyc.connect(addr,port=port,service=SocketTunnelService).root
+            s=rpyc.SocketStream.connect(addr,port,timeout=timeout,attempts=attempts)
+            return rpyc.connect_stream(s,SocketTunnelService).root
         except net.socket.timeout:
             return None

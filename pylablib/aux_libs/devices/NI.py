@@ -170,12 +170,14 @@ class NIDAQ(IDevice):
         self.ao_values={}
         self.cpi_counter=0
         self.clk_channel_base=20E6
+        self.max_ao_write_rate=1000 # maximal rate of repeating ao waveform with continuous repetition
         self.open()
         self._update_channel_names()
         self._running=False
         self._add_full_info_node("device",lambda: self.dev_name)
         self._add_settings_node("clock_cfg",self.get_clock_cfg,self.setup_clock)
         self._add_settings_node("clock_export",self.get_export_clock_terminal,self.export_clock)
+        self._add_settings_node("voltage_output_clock_cfg",self.get_voltage_output_clock_cfg,self.setup_voltage_output_clock)
         self._add_status_node("input_channels",lambda: self.get_input_channels(include=("ai","ci","di","cpi")))
         self._add_status_node("voltage_input_parameters",self.get_voltage_input_parameters)
         self._add_status_node("counter_input_parameters",self.get_counter_input_parameters)
@@ -281,6 +283,8 @@ class NIDAQ(IDevice):
         self.ai_task.export_signals.export_signal(nidaqmx.constants.Signal.SAMPLE_CLOCK,terminal)
     def get_export_clock_terminal(self):
         """Return terminal which outputs system clock (``None`` if none is connected)."""
+        if not self.ai_channels:
+            return None
         term=self.ai_task.export_signals.samp_clk_output_term
         return self._strip_channel_name(term) if term else None
 
@@ -623,15 +627,47 @@ class NIDAQ(IDevice):
         Args:
             names(str or [str]): name or list of names of outputs.
             values: output value or list values.
+                These can be single numbers, or arrays if the output clock is setup (see :meth:`setup_voltage_output_clock`).
+                In the latter case it sets up the output waveforms; not that waveforms for all channels must have the same length
+                (a single number signifying a constant output is also allowed)
+                If the analog output is set up to the finite mode (``continuous==False``), the finite waveform output happens right away,
+                with the number of samples determined by `samps_per_channel` parameter of :meth:`setup_voltage_output_clock`.
+                In this case, if the supplied waveform is shorter than the number of samples, it gets repeated; if it's longer, it gets cut off.
         """
-        names=funcargparse.as_sequence(names,allowed_type="array")
-        values=funcargparse.as_sequence(values,allowed_type="array")
+        if not funcargparse.is_sequence(names,"array"):
+            names=[names]
+            values=[values]
         for n in names:
             if n not in self.ao_values:
                 raise ValueError("channel '{}' doesn't exist".format(n))
         for n,v in zip(names,values):
             self.ao_values[n]=v
-        self.ao_task.write([self.ao_values[ch.name] for ch in self.ao_task.ao_channels])
+        waveform_output=self.ao_task.timing.samp_timing_type!=nidaqmx.constants.SampleTimingType.ON_DEMAND
+        if waveform_output:
+            self.ao_task.stop()
+        val=[self.ao_values[ch.name] for ch in self.ao_task.ao_channels]
+        ls=[len(v) for v in val if np.ndim(v)==1]
+        if not np.all([l==ls[0] for l in ls]):
+            raise ValueError("output channels have different lengths: {}".format(dict(zip(self.ao_task.ao_channels,ls))))
+        if not np.all([np.ndim(v)==np.ndim(val[0]) for v in val]):
+            val=[(v if np.ndim(v)==1 else [v]*ls[0]) for v in val]
+        val=np.array(val)
+        if waveform_output:
+            min_out_len=max(2,int(self.ao_task.timing.samp_clk_rate//self.max_ao_write_rate)+1)
+            if val.ndim==1:
+                val=np.column_stack([val]*min_out_len)
+            elif val.shape[1]<min_out_len:
+                nreps=min_out_len//val.shape[1]+1
+                val=np.concatenate([val]*nreps,axis=1)
+            if self.ao_task.timing.samp_quant_samp_mode==nidaqmx.constants.AcquisitionType.FINITE:
+                max_out_len=self.ao_task.timing.samp_quant_samp_per_chan
+                val=val[:,:max_out_len]
+        elif (not waveform_output) and val.ndim==2:
+            val=val[:,0]
+        if len(val)==1:
+            self.ao_task.write(val[0],auto_start=True if waveform_output else nidaqmx.task.AUTO_START_UNSET)
+        else:
+            self.ao_task.write(val,auto_start=True if waveform_output else nidaqmx.task.AUTO_START_UNSET)
     def get_voltage_outputs(self, names=None):
         """
         Get values of one or several analog voltage outputs.
@@ -640,9 +676,47 @@ class NIDAQ(IDevice):
             names(str or [str] or None): name or list of names of outputs (``None`` means all outputs).
 
         Return list of values ordered by `names` (or by :meth:`get_voltage_output_channels` if ``names==None``).
+        For continous waveforms, return the array containing a single repetition of the waveform.
+        For finite waveforms, repeat the array containing the last outputted waveform.
         """
         if names is None:
             names=self.ao_names
         else:
             names=funcargparse.as_sequence(names,allowed_type="array")
         return [self.ao_values[n] for n in names]
+    def setup_voltage_output_clock(self, rate=0, sync_with_ai=False, continuous=True, samps_per_chan=1000):
+        """
+        Setup analog output clock configuration.
+
+        Args:
+            rate: clock rate; if 0, assume constant voltage output (default)
+            sync_with_ai: if ``True``, the clock is synchronized to the analog input clock (the main clock);
+                note that in this case output changes only when the analog read task is running
+            continuous: if ``True``, any written waveform gets repeated continously; otherwise, it outputs written waveform only once,
+                and then latches the output on the last value
+            samps_per_chan: if ``continuous==False``, it determines number of samples to output before stopping
+        """
+        self.ao_task.stop()
+        sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS if continuous else nidaqmx.constants.AcquisitionType.FINITE
+        if rate==0 and not sync_with_ai:
+            self.ao_task.timing.samp_timing_type=nidaqmx.constants.SampleTimingType.ON_DEMAND
+        elif sync_with_ai:
+            self.ao_task.timing.cfg_samp_clk_timing(self.rate,source="ai/SampleClock",samps_per_chan=int(samps_per_chan),sample_mode=sample_mode)
+        else:
+            self.ao_task.timing.cfg_samp_clk_timing(rate,source="",samps_per_chan=int(samps_per_chan),sample_mode=sample_mode)
+        if self.ao_task.timing.samp_timing_type!=nidaqmx.constants.SampleTimingType.ON_DEMAND:
+            if continuous:
+                self.set_voltage_outputs(self.ao_names,[self.ao_values[n] for n in self.ao_names])
+    def get_voltage_output_clock_cfg(self):
+        """
+        Get analog output clock configuration.
+
+        Return tuple ``(rate, sync_with_ai, samps_per_chan, continous)``.
+        """
+        if self.ao_task.timing.samp_timing_type==nidaqmx.constants.SampleTimingType.ON_DEMAND:
+            return (0,False,1000,True)
+        sync_with_ai=self.ao_task.timing.samp_clk_src.endswith("ai/SampleClock")
+        rate=self.ao_task.timing.samp_clk_rate
+        samps_per_chan=self.ao_task.timing.samp_quant_samp_per_chan
+        continuous=self.ao_task.timing.samp_quant_samp_mode!=nidaqmx.constants.AcquisitionType.FINITE
+        return (rate,sync_with_ai,samps_per_chan,continuous)

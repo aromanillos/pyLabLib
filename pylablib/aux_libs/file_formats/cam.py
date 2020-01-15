@@ -44,7 +44,7 @@ class CamReader(object):
     """
     def __init__(self, path, same_size=False):
         object.__init__(self)
-        self.path=path
+        self.path=file_utils.normalize_path(path)
         self.frame_offsets=[0]
         self.frames_num=None
         self.same_size=same_size
