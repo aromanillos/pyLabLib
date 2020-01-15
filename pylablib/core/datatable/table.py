@@ -6,6 +6,7 @@ from ..utils import funcargparse, general, strdump
 from . import table_storage, column, indexing
 
 import numpy as np
+import pandas as pd
 
 _depends_local=[".table_storage","..utils.strdump"]
 
@@ -55,8 +56,11 @@ class DataTable(object):
                     data=[data[c] for c in column_names]
                 else:
                     data,column_names=data.values(),data.keys()
+            elif isinstance(data, pd.DataFrame):
+                column_names=list(data.columns)
+                data=[data.iloc(axis=1)[i] for i in range(data.shape[1])]
             if data is None and column_names is not None:
-                    data=[[] for _ in column_names]
+                data=[[] for _ in column_names]
             self._storage=storage_type(data,column_names,transposed=transposed,force_copy=force_copy)
         self._set_accessors()
         self._x_col=None
@@ -101,6 +105,13 @@ class DataTable(object):
         """
         return self._storage.as_array(force_copy=force_copy)
     __array__=as_array # property for compatibility with np.ufuncs
+    def as_pandas(self, force_copy=False):
+        """
+        Turn the table into a pandas DataFrame.
+
+        If ``force_copy==True``, ensure that the result is a copy of the data.
+        """
+        return self._storage.as_pandas(force_copy=force_copy)
     
     ## Accessors ##
     class RowAccessor(object):

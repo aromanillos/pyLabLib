@@ -8,6 +8,7 @@ from . import table_storage
 from ..utils import iterator as iterator_utils #@UnresolvedImport
 
 import numpy as np
+import pandas as pd
 
 
 class IGenWrapper(object):
@@ -33,6 +34,8 @@ class IGenWrapper(object):
         return self.cont.ndim
     def shape(self):
         return self.cont.shape
+    def __len__(self):
+        return self.shape()[0]
     
     
 class I1DWrapper(IGenWrapper):
@@ -250,7 +253,70 @@ class Column1DWrapper(I1DWrapper):
         """Copy the object. If ``wrapped==True``, return a new wrapper contating the object copy; otherwise, just return the copy."""
         new_cont=self.cont.copy()
         return Column1DWrapper(new_cont) if wrapped else new_cont
+
+
+class Series1DWrapper(I1DWrapper):
+    """
+    A wrapper for a pandas Series object.
+
+    Provides a uniform access to basic methods of a wrapped object.
+    """
+    def __init__(self, container):
+        if not isinstance(container, pd.Series):
+            container=pd.Series(container)
+        I1DWrapper.__init__(self, container)
     
+    def get_deleted(self, idx, wrapped=True):
+        """
+        Return a copy of the column with the data at index `idx` deleted.
+
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        """
+        new_cont=self.cont.drop(self.cont.index[idx])
+        return Series1DWrapper(new_cont) if wrapped else new_cont
+    def __delitem__(self, idx):
+        self.cont.drop(self.cont.index[idx],inplace=True)
+    def get_inserted(self, idx, val, wrapped=True):
+        """
+        Return a copy of the column with the data `val` added at index `idx`.
+        
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        """
+        new_cont=pd.concat([self.cont.iloc[:idx],pd.Series(val,copy=False),self.cont.iloc[idx:]])
+        return Series1DWrapper(new_cont) if wrapped else new_cont
+    def get_appended(self, val, wrapped=True):
+        """
+        Return a copy of the column with the data `val` appended at the end.
+        
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        """
+        new_cont=self.cont.append(val)
+        return Series1DWrapper(new_cont) if wrapped else new_cont
+    def subcolumn(self, idx, wrapped=True):
+        """
+        Return a subcolumn at index `idx`.
+
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        """
+        return Series1DWrapper(self.cont.iloc[idx]) if wrapped else self.cont.iloc[idx]
+    @staticmethod
+    def from_array(array, force_copy=False, force_numpy=True, try_optimizing=False, wrapped=True):
+        """
+        Build a new object of the type corresponding to the wrapper from the supplied `array` (a 1D numpy array or a list).
+
+        If ``force_copy==True``, make a copy of supplied array.
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        `force_numpy` and `try_optimizing` parameters are ignored.
+        """
+        new_cont=pd.Series(array,copy=force_copy)
+        return Series1DWrapper(new_cont) if wrapped else new_cont
+    def get_type(self):
+        """Get a string representing the wrapped object type"""
+        return "1d.column"
+    def copy(self, wrapped=True):
+        """Copy the object. If ``wrapped==True``, return a new wrapper contating the object copy; otherwise, just return the copy."""
+        new_cont=self.cont.copy()
+        return Series1DWrapper(new_cont) if wrapped else new_cont
     
     
     
@@ -705,9 +771,212 @@ class Table2DWrapper(I2DWrapper):
         return Table2DWrapper(new_cont) if wrapped else new_cont
     
 
+class DataFrame2DWrapper(I2DWrapper):
+    """
+    A wrapper for a pandas DataFrame object.
 
+    Provides a uniform access to basic methods of a wrapped object.
+    """
+    def __init__(self, container):
+        if not isinstance(container, pd.DataFrame):
+            container=pd.DataFrame(container,copy=False)
+        if container.ndim!=2:
+            raise ValueError("DataFrame2DWrapper only supports 2D arrays, got {}D array".format(container.ndim))
+        I2DWrapper.__init__(self, container,
+                    self.RowAccessor(self,container), self.ColumnAccessor(self,container), self.TableAccessor(container))
 
+    def __getitem__(self, idx):
+        res=self.cont.iloc[idx]
+        return np.asarray(res) if len(table_storage.get_shape(res))>0 else res
+    def __setitem__(self, idx, val):
+        self.cont.iloc[idx]=val
+    
+    class RowAccessor(object):
+        """
+        A row accessor: creates a simple uniform interface to treat the wrapped object row-wise (append/insert/delete/iterate over rows).
 
+        Generated automatically for each table on creation, doesn't need to be created explicitly.
+        """
+        def __init__(self, wrapper, storage):
+            object.__init__(self)
+            self._wrapper=wrapper
+            self._storage=storage
+        def __iter__(self):
+            return self._storage.__iter__()
+        def __getitem__(self, idx):
+            return self._storage.iloc[idx]
+        def __setitem__(self, idx, val):
+            self._storage.iloc[idx]=val
+        def get_deleted(self, idx, wrapped=True):
+            """
+            Return a copy of the column with the data at index `idx` deleted.
+
+            If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+            """
+            new_cont=self._storage.drop(self._storage.index[idx])
+            return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+        def __delitem__(self, idx):
+            self._storage.drop(self._storage.index[idx],inplace=True)
+        def get_inserted(self, idx, val, wrapped=True):
+            """
+            Return a new table with new rows given by `val` inserted at `idx`.
+
+            If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+            """
+            new_cont=pd.concat([self._storage.iloc[:idx],pd.DataFrame(val,copy=False),self._storage.iloc[idx:]])
+            return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+        def insert(self, idx, val):
+            """
+            Insert new rows given by `val` at index `idx`.
+            """
+            self._wrapper.set_container(self.get_inserted(idx,val,wrapped=False))
+        def get_appended(self, val, wrapped=True):
+            """
+            Return a new table with new rows given by `val` appended to the end of the table.
+
+            If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+            """
+            new_cont=self._storage.append(val)
+            return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+        def append(self, val):
+            """Insert new rows given by `val` to the end of the table."""
+            self._wrapper.set_container(self.get_appended(val,wrapped=False))
+            
+    class ColumnAccessor(object):
+        """
+        A column accessor: creates a simple uniform interface to treat the wrapped object column-wise (append/insert/delete/iterate over columns).
+
+        Generated automatically for each table on creation, doesn't need to be created explicitly.
+        """
+        def __init__(self, wrapper, storage):
+            object.__init__(self)
+            self._wrapper=wrapper
+            self._storage=storage
+        def __iter__(self):
+            return self._storage.c.__iter__()
+        def __getitem__(self, idx):
+            return self._storage.iloc[:,idx]
+        def __setitem__(self, idx, val):
+            self._storage.iloc[:,idx]=val
+        def get_deleted(self, idx, wrapped=True):
+            """
+            Return a new table with the columns at `idx` deleted.
+
+            If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+            """
+            try:
+                new_cont=self._storage.drop(idx,axis="columns")
+            except (TypeError,KeyError):
+                new_cont=self._storage.drop(self._storage.columns[idx],axis="columns")
+            return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+        def __delitem__(self, idx):
+            try:
+                self._storage.drop(idx,axis="columns",inplace=True)
+            except (TypeError,KeyError):
+                self._storage.drop(self._storage.columns[idx],axis="columns",inplace=True)
+        def get_inserted(self, idx, val, column_name=None, wrapped=True):
+            """
+            Return a new table with new columns given by `val` inserted at `idx`.
+
+            If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+            """
+            new_wrap=self._wrapper.copy()
+            new_wrap.insert(idx,val,column_name=column_name)
+            return new_wrap if wrapped else new_wrap.cont
+        def insert(self, idx, val, column_name=None):
+            """Insert new columns given by `val` at index `idx`."""
+            if column_name is None:
+                column_name=self._storage.shape[1]
+                while column_name in self._storage.columns:
+                    column_name+=1
+            self._storage.insert(idx,column_name,val)
+        def get_appended(self, val, column_name=None, wrapped=True):
+            """
+            Return a new table with new columns given by `val` appended to the end of the table.
+
+            If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+            """
+            return self.get_inserted(-1,val,column_name=column_name,wrapped=wrapped)
+        def append(self, val, column_name=None):
+            """Insert new columns given by `val` to the end of the table."""
+            return self.insert(-1,val,column_name=column_name)
+        def set_names(self, names):
+            """Set column names."""
+            self._storage.columns=names
+        def get_names(self):
+            """Get column names."""
+            return list(self._storage.columns)
+        def get_index(self, idx):
+            """Get number index for a given column index"""
+            idx=indexing.to_list_idx(idx,self.get_names()).idx
+            return (idx if idx>=0 else self._storage.shape[1]-idx)
+    
+    class TableAccessor(object):
+        """
+        A table accessor: acessing the table data through this interface returns an object of the appropriate type
+        (numpy array for numpy wrapped object, and :class:`.DataTable` for :class:`.DataTable` wrapped object).
+
+        Generated automatically for each table on creation, doesn't need to be created explicitly.
+        """
+        def __init__(self, storage):
+            object.__init__(self)
+            self._storage=storage
+        def __iter__(self):
+            return self._storage.iloc.__iter__()
+        def __getitem__(self, idx):
+            return self._storage.iloc[idx]
+        def __setitem__(self, idx, val):
+            self._storage.iloc[idx]=val
+    
+    def _get_df_columns(self, idx):
+        try:
+            return self.cont.loc(axis="columns")[idx]
+        except (TypeError,KeyError):
+            return self.cont.iloc(axis="columns")[idx]
+    def subtable(self, idx, wrapped=True):
+        """
+        Return a subtable at index `idx` of the appropriate type (:class:`.DataTable`).
+        
+        If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+        """
+        return DataFrame2DWrapper(self._get_df_columns(idx)) if wrapped else self._get_df_columns(idx)
+    def column(self, idx, wrapped=True):
+        """
+        Get a column at index `idx` as an :class:`.IDataColumn` object.
+
+        If ``wrapped==True``, return a new wrapper contating the column; otherwise, just return the column.
+        """
+        return Series1DWrapper(self._get_df_columns(idx)) if wrapped else self._get_df_columns(idx)
+    @staticmethod
+    def from_columns(columns, column_names=None, wrapped=True):
+        """
+        Build a new object of the type corresponding to the wrapper from the supplied `columns` (a list of columns).
+
+        `column_names` supplies names of the columns (only relevant for :class:`DataFrame2DWrapper`).
+        If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+        """
+        if column_names is None:
+            column_names=list(range(len(columns)))
+        new_cont=pd.DataFrame(dict(zip(column_names,columns)),columns=column_names)
+        return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+    @staticmethod
+    def from_array(array, column_names=None, force_copy=False, wrapped=True):
+        """
+        Build a new object of the type corresponding to the wrapper from the supplied `array` (a list of rows or a 2D numpy array).
+
+        `column_names` supplies names of the columns (only relevant for :class:`DataFrame2DWrapper`).
+        If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table.
+        """
+        new_cont=pd.DataFrame(array,columns=column_names,copy=force_copy)
+        return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+    def get_type(self):
+        """Get a string representing the wrapped object type"""
+        return "2d.pandas"
+    def copy(self, wrapped=True):
+        """Copy the object. If ``wrapped==True``, return a new wrapper contating the table; otherwise, just return the table."""
+        new_cont=self.cont.copy()
+        return DataFrame2DWrapper(new_cont) if wrapped else new_cont
+    
 
 def wrap1d(container):
     """
@@ -715,6 +984,8 @@ def wrap1d(container):
     """
     if isinstance(container, column.IDataColumn):
         return Column1DWrapper(container)
+    if isinstance(container, pd.Series):
+        return Series1DWrapper(container)
     return Array1DWrapper(container)
 def wrap2d(container):
     """
@@ -722,6 +993,8 @@ def wrap2d(container):
     """
     if isinstance(container, datatable.DataTable):
         return Table2DWrapper(container)
+    if isinstance(container, pd.DataFrame):
+        return DataFrame2DWrapper(container)
     return Array2DWrapper(container)
 def wrap(container):
     """

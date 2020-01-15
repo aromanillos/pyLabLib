@@ -123,18 +123,18 @@ def interpolate_trace(trace, step, rng=None, x_column=0, select_columns=None, ki
     If ``assume_sorted==True``, assume that x-data is sorted.
     `kind` specifies interpolation method.
     """
+    wtrace=wrapping.wrap(trace)
     src_column=waveforms.get_x_column(trace,x_column=x_column)
-    select_columns=select_columns or range(np.shape(trace)[1])
+    select_columns=select_columns or range(wtrace.shape()[1])
     rng_min,rng_max=rng or (None,None)
     rng_min=src_column.min() if (rng_min is None) else rng_min
     rng_max=src_column.max() if (rng_max is None) else rng_max
     start=(rng_min//step)*step
     stop=(rng_max//step)*step
     pts=np.arange(start,stop+step/2.,step)
-    wtrace=wrapping.wrap(trace)
     xidx=wtrace.c.get_index(x_column)
     columns=[ pts if wtrace.c.get_index(c)==xidx else
-            interpolate1D_func(src_column,trace[:,c],kind=kind,bounds_error=False,fill_values="bounds",assume_sorted=assume_sorted)(pts)
+            interpolate1D_func(src_column,wtrace[:,c],kind=kind,bounds_error=False,fill_values="bounds",assume_sorted=assume_sorted)(pts)
             for c in select_columns]
     return wtrace.subtable((slice(None),select_columns)).columns_replaced(columns,wrapped=False)
 

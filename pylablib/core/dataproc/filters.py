@@ -60,8 +60,12 @@ def convolution_filter(wf, width=1., kernel="gaussian", kernel_span="auto", mode
         cval (float): Convolution fill value (see :func:`scipy.ndimage.convolve`).
         kernel_height: Height parameter to be passed to the kernel function. ``None`` means normalization by area.
     """
-    if wf.ndim!=1:
-        raise ValueError("this function accepts only 1D arrays")
+    wrapped=wrap(wf)
+    if wrapped.ndim()==2:
+        return wrapped.columns_replaced([convolution_filter(wrapped.c[i],width=width,kernel=kernel,kernel_span=kernel_span,mode=mode,cval=cval,kernel_height=kernel_height)
+            for i in range(wrapped.shape()[1])],wrapped=False)
+    elif wrapped.ndim()!=1:
+        raise ValueError("this function accepts only 1D or 2D arrays")
     if kernel_span=="auto":
         if kernel=="gaussian":
             kernel_span=int(np.ceil(width*6))
@@ -172,6 +176,12 @@ def _sliding_func(wf, filtering_function, width=1, mode="reflect", cval=0.):
     mode ('drop' or 'leave') determines whether to drop the last bin if it's not full
     Works only with arrays (no columns or tables).
     """
+    wrapped=wrap(wf)
+    if wrapped.ndim()==2:
+        return wrapped.columns_replaced([_sliding_func(wrapped.c[i],filtering_function=filtering_function,mode=mode,cval=cval)
+            for i in range(wrapped.shape()[1])],wrapped=False)
+    elif wrapped.ndim()!=1:
+        raise ValueError("this function accepts only 1D or 2D arrays")
     if width is None or width<=1:
         return wf
     l=len(wf)
@@ -197,6 +207,7 @@ def _sliding_filter(wf, n=1, dec_mode="bin", mode="reflect", cval=0.):
             ``'reflect'`` (reflect waveform wrt its endpoint) or ``'wrap'`` (wrap the values from the other size).
         cval (float): If ``mode=='constant'``, determines the expanded values.
     """
+    wrapper=wrap(wf)
     wf=np.asarray(wf)
     if dec_mode=="bin" or dec_mode=="mean":
         res=_sliding_func(wf,np.mean,n,mode=mode,cval=cval)
@@ -210,7 +221,7 @@ def _sliding_filter(wf, n=1, dec_mode="bin", mode="reflect", cval=0.):
         res=_sliding_func(wf,np.median,n,mode=mode,cval=cval)
     else:
         raise ValueError("unrecognized decimation type: {0}".format(dec_mode))
-    return wrap(wf).array_replaced(res,wrapped=False)
+    return wrapper.array_replaced(res,wrapped=False)
 sliding_filter=general_utils.try_method_wrapper(_sliding_filter,method_name="sliding_filter")
 column.IDataColumn.sliding_filter=_sliding_filter
 table.DataTable.add_columnwise_function(sliding_filter,alias="sliding_filter",collection_type="table",column_arg_name="column")
@@ -264,6 +275,7 @@ def _decimate(wf, n=1, dec_mode="skip", axis=0, mode="drop"):
         axis (int): Axis along which to perform the decimation.
         mode (str): Determines what to do with the last bin if it's incomplete. Can be either ``'drop'`` (omit the last bin) or ``'leave'`` (keep it).
     """
+    wrapper=wrap(wf)
     wf=np.asarray(wf)
     if dec_mode=="bin" or dec_mode=="mean":
         res=_decimation_filter(wf,np.mean,n,axis=axis,mode=mode)
@@ -283,7 +295,7 @@ def _decimate(wf, n=1, dec_mode="skip", axis=0, mode="drop"):
         res=_decimation_filter(wf,_dec_fun,n,axis=axis,mode=mode)
     else:
         raise ValueError("unrecognized decimation type: {0}".format(dec_mode))
-    return wrap(wf).array_replaced(res,wrapped=False) if res.ndim<3 else res
+    return wrapper.array_replaced(res,wrapped=False) if res.ndim<3 else res
 decimate=general_utils.try_method_wrapper(_decimate,method_name="decimate")
 column.IDataColumn.decimate=_decimate
 table.DataTable.add_columnwise_function(decimate,alias="decimate",collection_type="table",column_arg_name="column")

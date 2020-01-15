@@ -43,14 +43,16 @@ def normalize_fourier_transform(ft, normalization="none"):
     """
     l=len(ft)
     if normalization=="sum":
-        ft=ft.copy()
+        ft=wrap(ft).copy()
         ft[:,1]=ft[:,1]/np.sqrt(l)
+        ft=ft.cont
     elif normalization=="density" or normalization=="dBc":
-        ft=ft.copy()
-        norm=np.sqrt(l**2*(ft[1,0]-ft[0,0]))
+        ft=wrap(ft).copy()
+        norm=np.sqrt(l**2*abs(ft[1,0]-ft[0,0]))
         if normalization=="dBc":
             norm=norm*ft[len(ft)//2,1]/l
         ft[:,1]=ft[:,1]/norm
+        ft=ft.cont
     elif normalization!="none":
         raise ValueError("unrecognized normalization mode: {0}".format(normalization))
     return ft
@@ -92,15 +94,15 @@ def fourier_transform(trace, truncate=False, truncate_power=None, normalization=
     wrapped=wrap(trace)
     column_names=["frequency","ft_data"]
     if trace.ndim==1:
-        trace_values=trace
+        trace_values=wrapped[:]
     else:
-        if trace.shape[1]==(1 if no_time else 2):
-            trace_values=trace[:,-1]
-        elif trace.shape[1]==(2 if no_time else 3):
-            trace_values=trace[:,-2]+1j*trace[:,-1]
+        if wrapped.shape()[1]==(1 if no_time else 2):
+            trace_values=wrapped[:,-1]
+        elif wrapped.shape()[1]==(2 if no_time else 3):
+            trace_values=wrapped[:,-2]+1j*wrapped[:,-1]
         else:
-            raise ValueError("fourier_transform doesn't work for an array with shape {0}".format(trace.shape))
-    dt=1. if (no_time or trace.ndim==1) else trace[1,0]-trace[0,0]
+            raise ValueError("fourier_transform doesn't work for an array with shape {0}".format(wrapped.shape()))
+    dt=1. if (no_time or wrapped.ndim()==1) else wrapped[1,0]-wrapped[0,0]
     if len(trace_values)==0:
         return wrapped.from_array(np.zeros((0,2)),column_names,wrapped=False)
     if len(trace_values)==1:
@@ -111,7 +113,7 @@ def fourier_transform(trace, truncate=False, truncate_power=None, normalization=
     ft=fft.fftshift(fft.fft(trace_values))
     df=1./(dt*len(ft))
     frequencies=column.crange(-len(ft)/2.,len(ft)/2.)*df
-    ft=wrapped.from_columns([frequencies,ft],column_names,wrapped=False) if trace.ndim>1 else np.column_stack((frequencies,ft))
+    ft=wrapped.from_columns([frequencies.as_array(),ft],column_names,wrapped=False) if wrapped.ndim()>1 else np.column_stack((frequencies,ft))
     ft=normalize_fourier_transform(ft,normalization)
     if single_sided:
         ft=wrap(ft).t[len(ft)//2:,:]
@@ -121,12 +123,12 @@ def flip_fourier_transform(ft):
     """
     Flip the fourier transform (analogous to making frequencies negative and flipping the order).
     """
-    ft=ft.copy()
+    ft=wrap(ft).copy()
     if len(ft)%2==1:
         ft[:,1]=ft[::-1,1]
     else:
         ft[1::,1]=ft[:0:-1,1]
-    return ft
+    return ft.cont
 
 def inverse_fourier_transform(ft, truncate=False, truncate_power=None, no_freq=False, zero_loc=None, symmetric_time=False):
     """
@@ -150,37 +152,37 @@ def inverse_fourier_transform(ft, truncate=False, truncate_power=None, no_freq=F
     if len(ft)==0:
         return wrapped.from_array(np.zeros((0,2)),column_names,wrapped=False)
     if len(ft)==1:
-        return wrapped.from_array(np.array([[0,ft[0]]]),column_names,wrapped=False)
-    no_freq=no_freq or ft.ndim==1
+        return wrapped.from_array(np.array([[0,wrapped[:,0]]]),column_names,wrapped=False)
+    no_freq=no_freq or wrapped.ndim()==1
     if zero_loc is None:
         if no_freq:
             zero_freq_point=0
         else:
             zero_freq_point=waveforms.find_closest_arg(wrapped.c[0],0,ordered=True)
             if zero_freq_point is None:
-                raise ValueError("can't find zero frequency point; closest is {0}".format(ft[zero_freq_point,0]))
+                raise ValueError("can't find zero frequency point; closest is {0}".format(wrapped[zero_freq_point,0]))
     elif zero_loc=="center":
         zero_freq_point=len(ft)//2
     else:
         zero_freq_point=zero_loc
-    if ft.ndim==1:
-        ft_ordered=np.concatenate(( ft[zero_freq_point:], ft[:zero_freq_point] ))
+    if wrapped.ndim()==1:
+        ft_ordered=np.concatenate(( wrapped[zero_freq_point:], wrapped[:zero_freq_point] ))
     else:
-        ft_ordered=np.concatenate(( ft[zero_freq_point:,-1], ft[:zero_freq_point,-1] ))
+        ft_ordered=np.concatenate(( wrapped[zero_freq_point:,-1], wrapped[:zero_freq_point,-1] ))
     if truncate:
         ft_ordered=truncate_len_pow2(ft_ordered,truncate_power=truncate_power)
     trace=fft.ifft(ft_ordered)
     l=len(trace)
-    df=1. if no_freq else ft[1,0]-ft[0,0]
+    df=1. if no_freq else wrapped[1,0]-wrapped[0,0]
     dt=1./(df*l)
     times=column.crange(len(ft))*dt
     if symmetric_time:
         times=times-times[l//2]
         trace=np.concatenate((trace[l//2:],trace[:l//2]))
-    if ft.ndim==1:
+    if wrapped.ndim()==1:
         return np.column_stack((times,trace))
     else:
-        return wrapped.from_columns([times,trace],column_names,wrapped=False)
+        return wrapped.from_columns([times.as_array(),trace],column_names,wrapped=False)
 
 def power_spectral_density(trace, truncate=False, truncate_power=None, normalization="density", no_time=False, single_sided=False, window="rectangle", window_power_compensate=True):
     """
@@ -208,6 +210,7 @@ def power_spectral_density(trace, truncate=False, truncate_power=None, normaliza
     """
     column_names=["frequency","PSD"]
     ft=fourier_transform(trace, truncate=truncate, truncate_power=truncate_power, normalization=normalization, no_time=no_time, single_sided=single_sided, window=window, window_power_compensate=window_power_compensate)
+    return ft
     wrapped=wrap(ft)
     PSD=wrapped.from_columns((wrapped.c[0].real,abs(wrapped.c[1])**2),column_names,wrapped=False)
     return PSD
@@ -218,19 +221,19 @@ def get_real_part(ft):
     """
     Get the fourier transform of the real part only from the fourier transform of a complex variable.
     """
-    re_ft=ft.copy()
+    re_ft=wrap(ft).copy()
     re_ft[1:,1]=(ft[1:,1]+ft[:0:-1,1].conjugate())*0.5
     re_ft[0,1]=np.real(ft[0,1])
-    return re_ft
+    return re_ft.cont
 
 def get_imag_part(ft):
     """
     Get the fourier transform of the imaginary part only from the fourier transform of a complex variable.
     """
-    im_ft=ft.copy()
+    im_ft=wrap(ft).copy()
     im_ft[1:,1]=(im_ft[1:,1]-im_ft[:0:-1,1].conjugate())/2.j
     im_ft[0,1]=im_ft[0,1].imag
-    return im_ft
+    return im_ft.cont
 
 def get_correlations(ft_a, ft_b, zero_mean=True, normalization="none"):
     """

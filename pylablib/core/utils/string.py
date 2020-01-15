@@ -610,7 +610,7 @@ def from_string_partial(value, delimiters=_delimiters_regexp, case_sensitive=Tru
     if value[0] in _parenthesis_pairs:
         end,parsed_value=_parse_parenthesis_struct(value,use_classes=use_classes)
         if not return_string:
-            struct=(value[0],parsed_value)
+            struct=(value[0],parsed_value,None)
             res=_convert_parenthesis_struct(struct,case_sensitive=case_sensitive,parenthesis_rules=parenthesis_rules)
     elif value[0] in _quotation_characters:
         end,res=extract_escaped_string(value)

@@ -43,7 +43,7 @@ setup(
     'Tracker': 'https://github.com/AlexShkarin/pyLabLib/issues'
     },
     packages=find_packages(exclude=['docs']),
-    install_requires=['future','numpy','scipy','matplotlib','numba','rpyc'],
+    install_requires=['future','numpy','scipy','matplotlib',"pandas",'numba','rpyc'],
     extras_require={
         'devio-basic':['pyft232','pyvisa','pyserial','pyusb','websocket-client'],
         'devio':['pyft232','pyvisa','pyserial','nidaqmx','pywinusb','websocket-client'],

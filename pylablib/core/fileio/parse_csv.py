@@ -10,6 +10,7 @@ from ..datatable import table as datatable  #@UnresolvedImport
 
 import re
 import numpy as np
+import pandas as pd
 
 _depends_local=["..utils.string"]
 
@@ -139,7 +140,7 @@ def _try_convert_column(column, dtype, min_dtype="int"):
         min_dtype="generic" if dtype=="numeric" else dtype
         return column, min_dtype
     else:
-        return np.array(column).astype(dtype), dtype # dtype is specified, just convert
+        return np.array(column,dtype=dtype), dtype # dtype is specified, just convert
 
 class ChunksAccumulator(object):
     """
@@ -298,9 +299,9 @@ def columns_to_table(data, columns=None, out_type="table"):
     
     Args:
         columns: either number if columns, or a list of columns names.
-        out_type (str): type of the result: ``'array'`` for numpy array, ``'table'`` for :class:`.DataTable` object.
+        out_type (str): type of the result: ``'array'`` for numpy array, ``'pandas'`` for pandas DataFrame, ``'table'`` for :class:`.DataTable` object.
     """
-    funcargparse.check_parameter_range(out_type,"out_type",{"table","array"})
+    funcargparse.check_parameter_range(out_type,"out_type",{"table","array","pandas"})
     if columns is not None:
         if funcargparse.is_sequence(columns,"builtin;nostring"):
             col_num=len(columns)
@@ -313,9 +314,13 @@ def columns_to_table(data, columns=None, out_type="table"):
         if len(data)==0 and col_num is not None:
             data=[np.zeros(0,) for _ in range(col_num)] # to from array columns instead of list ones
         return datatable.DataTable(data,column_names=columns,transposed=True)
+    elif out_type=="pandas":
+        if columns is None:
+            columns=list(range(len(data)))
+        return pd.DataFrame(dict(zip(columns,data)),columns=columns)
     else:
         if len(data)==0:
-            data=np.zeros(0,col_num or 0)
+            data=np.zeros((0,col_num or 0))
         else:
             data=np.column_stack(data)
     return data

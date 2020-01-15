@@ -16,6 +16,7 @@ from ..utils import log #@UnresolvedImport
 from ..datatable import table as datatable  #@UnresolvedImport
 
 import numpy as np
+import pandas as pd
 import datetime
 
 
@@ -25,10 +26,14 @@ def _is_file(value):
     return isinstance(value,datafile.DataFile)
 
 def _is_table(value, allow_1D=False):
-    return isinstance(value, datatable.DataTable) or (isinstance(value, np.ndarray) and (value.ndim==2 or (allow_1D and value.ndim==1)) )
+    return isinstance(value, datatable.DataTable) \
+        or (isinstance(value, np.ndarray) and (value.ndim==2 or (allow_1D and value.ndim==1)) ) \
+        or (isinstance(value, pd.DataFrame))
 def _table_row_iterator(value):
     if isinstance(value, datatable.DataTable):
         return value.r
+    elif isinstance(value, pd.DataFrame):
+        return value.itertuples(index=False)
     else:
         return value
 
@@ -155,8 +160,11 @@ class CSVTableOutputFileFormat(ITextOutputFileFormat):
             data=datatable.DataTable(data)
             #raise ValueError("format '{0}' can't save data {1}".format(self.format_name,data))
         stream=location_file.stream
-        if columns is None and data is not None and isinstance(data, datatable.DataTable):
-            columns=data.get_column_names()
+        if columns is None and data is not None:
+            if isinstance(data, datatable.DataTable):
+                columns=data.get_column_names()
+            elif isinstance(data, pd.DataFrame):
+                columns=data.columns
         if columns is not None:
             self.write_line(stream,self.get_columns_line(columns))
         for line in _table_row_iterator(data):

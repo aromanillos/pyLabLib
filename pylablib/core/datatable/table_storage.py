@@ -12,6 +12,7 @@ from . import column
 from .datatable_utils import get_shape, as_array
 
 import numpy as np
+import pandas as pd
 
 class IDataTableStorage(object):
     def __init__(self):
@@ -39,6 +40,13 @@ class IDataTableStorage(object):
             return self.get_item(slice(None))
     def __array__(self): # property for compatibility with np.ufuncs
         return self.as_array()
+    def as_pandas(self, force_copy=False):
+        """
+        Turn the storage into a pandas DataFrame.
+
+        If ``force_copy==True``, ensure that the result is a copy of the data.
+        """
+        return pd.DataFrame(self.as_array(force_copy=False),columns=self.get_column_names(),copy=force_copy)
     ## Indexing ##
     # numpy-like; accept 1D or 2D numpy style index
     def get_item(self, idx): # ; return np.array, unless single element is accessed
@@ -199,6 +207,22 @@ class ColumnDataTableStorage(IDataTableStorage):
                 return self.shape[0]==shape[0]
             else:
                 return self.shape[1]==shape[1]
+
+    def as_pandas(self, force_copy=False):
+        """
+        Turn the storage into a pandas DataFrame.
+
+        If ``force_copy==True``, ensure that the result is a copy of the data.
+        """
+        columns=[]
+        for c in self._columns:
+            if isinstance(c,column.ListDataColumn):
+                c=c._column
+            else:
+                c=c.as_array(force_copy=False)
+            columns.append(c)
+        columns=dict(zip(self.get_column_names(),columns))
+        return pd.DataFrame(columns,columns=self.get_column_names(),copy=force_copy)
     
     ## Columns indexing ##
     def get_column_names(self, idx=None):

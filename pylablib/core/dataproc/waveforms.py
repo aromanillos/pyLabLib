@@ -5,6 +5,7 @@ Generic utilities for dealing with numerical arrays.
 from __future__ import division
 
 import numpy as np
+import pandas as pd
 import math
 
 from ..datatable import column #@UnresolvedImport
@@ -82,7 +83,7 @@ def get_x_column(wf, x_column=None, idx_default=False):
     if np.ndim(x_column)>0:
         return x_column
     if x_column=="#":
-        return column.LinearDataColumn(len(wf))
+        return wf.index if isinstance(wf,pd.DataFrame) or isinstance(wf,pd.Series) else column.LinearDataColumn(len(wf))
     elif np.ndim(wf)==1:
         if x_column is None and idx_default:
             return column.LinearDataColumn(len(wf))
@@ -90,7 +91,7 @@ def get_x_column(wf, x_column=None, idx_default=False):
     else:
         if x_column is None:
             x_column=0
-        return wf[:,x_column]
+        return wrap(wf)[:,x_column]
     
 def get_y_column(wf, y_column=None):
     """
@@ -105,13 +106,13 @@ def get_y_column(wf, y_column=None):
     if np.ndim(y_column)>0:
         return y_column
     if y_column=="#":
-        return column.LinearDataColumn(len(wf))
+        return wf.index if isinstance(wf,pd.DataFrame) or isinstance(wf,pd.Series) else column.LinearDataColumn(len(wf))
     elif np.ndim(wf)==1:
         return wf
     else:
         if y_column is None:
             y_column=1
-        return wf[:,y_column]
+        return wrap(wf)[:,y_column]
     
 
 ##### Sorting #####
@@ -566,8 +567,12 @@ def expand_waveform(wf, size=0, mode="constant", cval=0., side="both"):
         cval (float): If ``mode=='constant'``, determines the expanded values.
         side (str): Expansion side. Can be ``'left'``, ``'right'`` or ``'both'``.
     """
-    if np.ndim(wf)!=1:
-        raise ValueError("can only expand 1D arrays")
+    wrapped=wrap(wf)
+    if wrapped.ndim()==2:
+        return wrapped.columns_replaced([expand_waveform(wrapped.c[i],size=size,mode=mode,cval=cval,side=side)
+            for i in range(wrapped.shape()[1])],wrapped=False)
+    elif wrapped.ndim()!=1:
+        raise ValueError("this function accepts only 1D or 2D arrays")
     if len(wf)==0 or size==0:
         return wf
     if size>len(wf):
@@ -594,7 +599,7 @@ def expand_waveform(wf, size=0, mode="constant", cval=0., side="both"):
         res=np.concatenate(( left_part,wf,right_part ))
     else:
         raise ValueError("unrecognized side mode: {0}".format(side))
-    return wrap(wf).array_replaced(res,wrapped=False)
+    return wrapped.array_replaced(res,wrapped=False)
 
 
 

@@ -9,6 +9,7 @@ from ..datatable import table as datatable #@UnresolvedImport
 from . import location, parse_csv
 
 import numpy as np
+import pandas as pd
 
 
 
@@ -164,11 +165,68 @@ class ITableDictionaryEntry(IDictionaryEntry):
         IDictionaryEntry.__init__(self,data)
         self.columns=columns
         
-    def _get_columns(self):
-        if self.columns is None and isinstance(self.data, datatable.DataTable):
-            return self.data.get_column_names()
+    def _prepare_desc_data(self):
+        data=self.data
+        desc=dictionary.Dictionary()
+        desc["__data_type__"]="table"
+        columns=self.columns
+        if isinstance(data,datatable.DataTable):
+            desc["__cont_type__"]="datatable"
+            if columns is None:
+                columns=data.get_column_names()
+            elif len(data.get_column_names())!=len(columns):
+                raise ValueError("supplied columns length {} doesn't agree with the data columns length {}".format(len(columns),len(data.get_column_names())))
+        elif isinstance(data,pd.DataFrame):
+            desc["__cont_type__"]="pandas"
+            desc["column_multiindex"]=False
+            if columns is None:
+                columns=data.columns.tolist()
+                desc["column_multiindex"]=data.columns.nlevels>1
+            elif len(data.columns)!=len(columns):
+                raise ValueError("supplied columns length {} doesn't agree with the data columns length {}".format(len(columns),len(data.columns)))
+            default_idx=data.index.equals(pd.RangeIndex(stop=len(data)))
+            if not default_idx:
+                desc["index_columns"]=list(data.index.names)
+                data=data.reset_index() # allow index/column name clashes to raise errors
+                columns=data.columns.tolist()
+                if desc["column_multiindex"]:
+                    data.columns=columns
         else:
-            return self.columns
+            desc["__cont_type__"]="array"
+            data=np.asarray(data)
+        if columns is not None:
+            desc["columns"]=columns
+        return desc, data
+
+    @classmethod
+    def _parse_desc_data(cls, desc, data=None, out_type="table"):
+        columns=desc.get("columns",None)
+        data=desc.get("data",data)
+        out_type=desc.get("__cont_type__",out_type)
+        if data is None:
+            raise ValueError("can't load {0} with format {1}".format(desc,"inline"))
+        if len(data)==0:
+            data=parse_csv.columns_to_table([],columns=columns,out_type="table")
+        if out_type=="table":
+            if columns:
+                data.set_column_names(columns)
+        elif out_type=="pandas":
+            column_data=[c._column for c in data.c]
+            if columns is None:
+                columns=data.get_column_names()
+            data=pd.DataFrame(dict(zip(columns,column_data)),columns=columns)
+            if "index_columns" in desc:
+                index_width=len(desc["index_columns"])
+                data=data.set_index(columns[:index_width])
+                data.index.names=desc["index_columns"]
+                columns=columns[index_width:]
+            if desc.get("column_multiindex",False):
+                data.columns=pd.MultiIndex.from_tuples(columns)
+        else:
+            if columns and len(columns)!=data.shape[1]:
+                raise ValueError("columns number doesn't agree with the table size")
+            data=np.asarray(data)
+        return data,columns
         
     @classmethod
     def build_entry(cls, data, table_format="inline", **kwargs):
@@ -218,7 +276,7 @@ class ITableDictionaryEntry(IDictionaryEntry):
             return InlineTableDictionaryEntry.from_dict(dict_ptr,loc,out_type=out_type,**kwargs)
         else:
             return IExternalTableDictionaryEntry.from_dict(dict_ptr,loc,out_type=out_type,**kwargs)
-add_entry_class(ITableDictionaryEntry,"table",(np.ndarray,datatable.DataTable))
+add_entry_class(ITableDictionaryEntry,"table",(np.ndarray,datatable.DataTable,pd.DataFrame))
  
 class InlineTableDictionaryEntry(ITableDictionaryEntry):
     """
@@ -232,15 +290,10 @@ class InlineTableDictionaryEntry(ITableDictionaryEntry):
         """
         Convert the data to a dictionary branch and write the table to the file.
         """
-        table=self.data
-        if table is None:
+        if self.data is None:
             raise ValueError("can't build entry for empty table")
-        columns=self._get_columns()
-        d=dictionary.Dictionary()
-        d["__data_type__"]="table"
+        d,table=self._prepare_desc_data()
         d["__table_type__"]="inline"
-        if columns is not None:
-            d["columns"]=columns
         d["data"]=InlineTable(table)
         return d
     @classmethod
@@ -253,19 +306,7 @@ class InlineTableDictionaryEntry(ITableDictionaryEntry):
             loc: Location for the data to be loaded.
             out_type (str): Output format of the data (``'array'`` for numpy arrays or ``'table'`` for :class:`.DataTable` objects).
         """
-        columns=dict_ptr.get("columns",None)
-        data=dict_ptr.get("data",None)
-        if data is None:
-            raise ValueError("can't load {0} with format {1}".format(dict_ptr,"inline"))
-        if len(data)==0:
-            data=parse_csv.columns_to_table([],columns=columns,out_type=out_type)
-        if out_type=="table":
-            if columns:
-                data.set_column_names(columns)
-        else:
-            if columns and len(columns)!=data.shape[1]:
-                raise ValueError("columns number doesn't agree with the table size")
-            data=np.asarray(data)
+        data,columns=cls._parse_desc_data(dict_ptr,out_type=out_type)
         return InlineTableDictionaryEntry(data,columns)
 
 class IExternalTableDictionaryEntry(ITableDictionaryEntry):
@@ -309,17 +350,14 @@ class ExternalTextTableDictionaryEntry(IExternalTableDictionaryEntry):
         """
         Convert the data to a dictionary branch and save the table to an external file.
         """
-        table=self.data
-        if table is None:
+        if self.data is None:
             raise ValueError("can't build entry for empty table")
-        columns=self._get_columns()
+        d,table=self._prepare_desc_data()
         name=self._get_name(dict_ptr,loc)
-        d=dictionary.Dictionary()
-        d["__data_type__"]="table"
         d["__table_type__"]="external"
         d["file_type"]=self.file_format.format_name
         save_file=location.LocationFile(loc,name)
-        self.file_format.write(save_file,table,columns=columns)
+        self.file_format.write(save_file,table,columns=d.get("columns",None))
         d["file_path"]=save_file.get_path()
         return d
     @classmethod
@@ -335,8 +373,11 @@ class ExternalTextTableDictionaryEntry(IExternalTableDictionaryEntry):
         from . import loadfile
         file_path=dict_ptr["file_path"]
         file_type=dict_ptr.get("file_type","csv")
+        out_type=dict_ptr.get("__cont_type__",out_type)
         load_file=location.LocationFile(loc,file_path)
-        data=loadfile.IInputFileFormat.read_file(load_file,file_format=file_type,out_type=out_type).data
+        file_out_type="table" if out_type=="pandas" else out_type
+        data=loadfile.IInputFileFormat.read_file(load_file,file_format=file_type,out_type=file_out_type,dtype="generic").data # TODO: autodetect data dtype when saving
+        data,_=cls._parse_desc_data(dict_ptr,data=data,out_type=out_type)
         return ExternalTextTableDictionaryEntry(data,name=load_file.name)
 class ExternalBinTableDictionaryEntry(IExternalTableDictionaryEntry):
     """
@@ -355,17 +396,12 @@ class ExternalBinTableDictionaryEntry(IExternalTableDictionaryEntry):
         """
         Convert the data to a dictionary branch and save the table to an external file.
         """
-        table=self.data
-        if table is None:
+        if self.data is None:
             raise ValueError("can't build entry for empty table")
-        columns=self._get_columns()
+        d,table=self._prepare_desc_data()
         name=self._get_name(dict_ptr,loc)
-        d=dictionary.Dictionary()
-        d["__data_type__"]="table"
         d["__table_type__"]="external"
         d["file_type"]=self.file_format.format_name
-        if columns is not None:
-            d["columns"]=columns
         save_file=location.LocationFile(loc,name)
         self.file_format.write(save_file,table)
         d.merge_branch(self.file_format.get_preamble(save_file,table),"preamble")
@@ -385,9 +421,14 @@ class ExternalBinTableDictionaryEntry(IExternalTableDictionaryEntry):
         file_path=dict_ptr["file_path"]
         file_type=dict_ptr.get("file_type","bin")
         preamble=dict_ptr.get("preamble",None)
-        columns=dict_ptr.get("columns",None)
+        out_type=dict_ptr.get("__cont_type__",out_type)
         load_file=location.LocationFile(loc,file_path)
-        data=loadfile.IInputFileFormat.read_file(load_file,file_format=file_type,preamble=preamble,columns=columns).data
+        file_out_type="table" if out_type=="pandas" else out_type
+        data=loadfile.IInputFileFormat.read_file(load_file,file_format=file_type,preamble=preamble,out_type=file_out_type).data
+        if out_type=="pandas" and data.shape[1]>0:
+            npdata=data[:]
+            data=datatable.DataTable(npdata.astype(npdata.dtype.type)) # convert to native byteorder (required for pandas indexing)
+        data,_=cls._parse_desc_data(dict_ptr,data=data,out_type=out_type)
         return ExternalBinTableDictionaryEntry(data,name=load_file.name)
 
 

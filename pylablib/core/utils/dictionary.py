@@ -8,6 +8,7 @@ from future.utils import viewitems as viewitems_, viewvalues as viewvalues_
 from . import funcargparse, general, strdump
 import re
 import collections
+import pandas as pd
 
 _depends_local=["..utils.strdump"]
 
@@ -122,7 +123,16 @@ class Dictionary(object):
         object.__init__(self)
         self._case_sensitive=case_sensitive
         self._case_normalization=case_normalization
-        if root:
+        if root is not None:
+            if isinstance(root,pd.Series):
+                root=dict(zip(root.index,root))
+            elif isinstance(root,pd.DataFrame):
+                if root.shape[1]==1:
+                    root=dict(zip(root.index,root.iloc(axis=1)[0]))
+                elif root.shape[1]==2:
+                    root=dict(zip(root.iloc(axis=1)[0],root.iloc(axis=1)[1]))
+                else:
+                    raise ValueError("only accept 1- and 2-column arrays")
             root=Dictionary._get_root(root)
             if copy:
                 self._data={}
@@ -594,6 +604,23 @@ class Dictionary(object):
             for p,v in self.iternodes(to_visit="leafs",include_path=True):
                 d["/".join(p)]=v
             return d
+    def as_pandas(self, index_key=True, as_series=True):
+        """
+        Convert into a pandas DataFrame or Series object.
+        
+        Args:
+            index_key (bool): If ``False``, create a 2-column table with the first column (``"key"``) containing string path
+                and the second column (``"value"``) containing value; otherwise, move key to the table index.
+            as_series (bool): If ``index_key==True`` and ``as_series==True``, convert the resulting DataFrame into 1D Series
+                (the key is the index); otherwise, keep it as a single-column table
+        """
+        data=[("/".join(p), v) for p,v in self.iternodes(to_visit="leafs",include_path=True,ordered=True)]
+        table=pd.DataFrame(data,columns=["key","value"])
+        if index_key:
+            table=table.set_index("key")
+            if as_series:
+                table=table["value"]
+        return table
     
     def get_path(self): return [] # for compatibility with pointer
     def branch_pointer(self, branch=""):

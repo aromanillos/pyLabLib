@@ -9,7 +9,7 @@ from . import fourier
 from .fourier import fourier_transform, inverse_fourier_transform, power_spectral_density
 
 from . import filters
-from .filters import convolution_filter, gaussian_filter, gaussian_filter_nd, low_pass_filter, high_pass_filter, sliding_average, median_filter
+from .filters import convolution_filter, gaussian_filter, gaussian_filter_nd, low_pass_filter, high_pass_filter, sliding_average, median_filter, sliding_filter
 from .filters import decimate, binning_average, decimate_datasets, decimate_full, collect_into_bins, split_into_bins
 
 from . import fitting

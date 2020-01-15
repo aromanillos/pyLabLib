@@ -25,7 +25,7 @@ To access to the most common functions simply import the library::
 Requirements
 ------------
 
-The package requires `numpy <http://docs.scipy.org/doc/numpy/>`_, `scipy <http://docs.scipy.org/doc/scipy/reference/>`_, `matplotlib <http://matplotlib.org/>`_ and `numba <http://numba.pydata.org/>`_ modules for computations. Note that when installed directly from pip, ``numpy`` comes with the OpenBLAS version of the linear algebra library; if other version (e.g., Intel MKL) is preferred, it is a good idea to ``numpy`` already installed before installing ``pyLabLib``. All other packages can be safely installed from pip.
+The package requires `numpy <http://docs.scipy.org/doc/numpy/>`_, `scipy <http://docs.scipy.org/doc/scipy/reference/>`_, `matplotlib <http://matplotlib.org/>`_, `pandas <https://pandas.pydata.org/>`_ and `numba <http://numba.pydata.org/>`_ modules for computations. Note that when installed directly from pip, ``numpy`` comes with the OpenBLAS version of the linear algebra library; if other version (e.g., Intel MKL) is preferred, it is a good idea to ``numpy`` already installed before installing ``pyLabLib``. All other packages can be safely installed from pip.
 
 `PyVISA <https://pyvisa.readthedocs.io/en/master/>`_ and `pySerial <https://pythonhosted.org/pyserial/>`_ are the main packages used for the device communication. For some specific devices you might require ``pyft232``, ``pywinusb``, ``websocket-client``, or `nidaqmx <https://nidaqmx-python.readthedocs.io/en/latest/>`_ (keep in mind that it's different from the ``PyDAQmx`` package). Some devices have additional requirements (devices software or drivers installed, or some particular dlls), which are specified in their description.
 

@@ -136,6 +136,7 @@ class SocketTunnelService(rpyc.SlaveService):
             self.tunnel_socket.close()
         except AttributeError:
             pass
+        rpyc.SlaveService.on_disconnect(self,conn)
 
 class DeviceService(SocketTunnelService):
     """

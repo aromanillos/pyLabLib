@@ -13,6 +13,7 @@ import re
 import numpy as np
 
 _depends_local=[".parse_csv"]
+_module_parameters={"fileio/loadfile/csv/out_type":"table"}
 
 ##### File type detection #####
 
@@ -94,14 +95,14 @@ def _try_time_comment(line):
         usec=usec or 0
         return datetime.datetime(int(year),int(month),int(day),int(hour),int(minute),int(second),int(float(usec)*1E6))
 def _try_columns_line(line, row_size):
-    split_line=parse_csv._table_delimiters_regexp.split(line)
+    split_line=string.from_row_string(line,parse_csv._table_delimiters_regexp)
     if len(split_line)!=row_size:
         return None
     try:
         for e in split_line:
             complex(e.replace("i","j"))
         return None # all numerical, can't be column names
-    except ValueError:
+    except (ValueError, AttributeError):
         return split_line
 def _find_columns_lines(corrupted, comments, row_size):
     if len(corrupted["type"])>0:
@@ -257,7 +258,7 @@ class CSVTableInputFileFormat(ITextInputFileFormat):
     def __init__(self):
         ITextInputFileFormat.__init__(self)
     @staticmethod
-    def read_file(location_file, out_type="table", dtype="numeric", columns=None, delimiters=None, empty_entry_substitute=None, ignore_corrupted_lines=True, skip_lines=0, **kwargs):
+    def read_file(location_file, out_type="default", dtype="numeric", columns=None, delimiters=None, empty_entry_substitute=None, ignore_corrupted_lines=True, skip_lines=0, **kwargs):
         """
         Read CSV file.
         
@@ -265,7 +266,8 @@ class CSVTableInputFileFormat(ITextInputFileFormat):
         
         Args:
             location_file: Location of the data.
-            out_type (str): type of the result: ``'array'`` for numpy array, ``'table'`` for :class:`.DataTable` object.
+            out_type (str): type of the result: ``'array'`` for numpy array, ``'pandas'`` for pandas DataFrame, ``'table'`` for :class:`.DataTable` object,
+                or ``'default'`` (determined by the library default; ``'table'`` by default)
             dtype: dtype of entries; can be either a single type, or a list of types (one per column).
                 Possible dtypes are: ``'int'``, ``'float'``, ``'complex'``,
                 ``'numeric'`` (tries to coerce to minimal possible numeric type, raises error if data can't be converted to `complex`),
@@ -278,19 +280,24 @@ class CSVTableInputFileFormat(ITextInputFileFormat):
                 otherwise, raise :exc:`ValueError`.
             skip_lines (int): Number of lines to skip from the beginning of the file.
         """
+        if out_type=="default":
+            out_type=_module_parameters["fileio/loadfile/csv/out_type"]
         if delimiters is None:
             delimiters=parse_csv._table_delimiters
         with location_file.opening(mode="read",data_type="text"):
             for _ in range(skip_lines):
                 location_file.stream.readline()
-            data,comments,corrupted=parse_csv.load_table(location_file.stream,dtype=dtype,columns=columns,
+            data,comments,corrupted=parse_csv.load_table(location_file.stream,dtype=dtype,columns=columns,out_type=out_type,
                             delimiters=delimiters,empty_entry_substitute=empty_entry_substitute,ignore_corrupted_lines=ignore_corrupted_lines)
-        if out_type=="table" and not funcargparse.is_sequence(columns,"builtin;nostring") and len(data)>0:
+        if out_type in {"table","pandas"} and not funcargparse.is_sequence(columns,"builtin;nostring") and len(data)>0:
             columns,comment_idx=_find_columns_lines(corrupted,comments,data.shape[1])
             if comment_idx is not None:
                 del comments[comment_idx]
             if columns is not None:
-                data.set_column_names(columns)
+                if out_type=="table":
+                    data.set_column_names(columns)
+                else:
+                    data.columns=columns
         creation_time=_extract_savetime_comment(comments)
         return datafile.DataFile(data=data,comments=comments,creation_time=creation_time,filetype="csv")
     
@@ -350,14 +357,15 @@ class BinaryTableInputFileFormatter(IInputFileFormat):
         IInputFileFormat.__init__(self)
     
     @staticmethod
-    def read_file(location_file, out_type="table", dtype=">f8", columns=None, packing="flatten", preamble=None, skip_bytes=0, **kwargs):
+    def read_file(location_file, out_type="default", dtype=">f8", columns=None, packing="flatten", preamble=None, skip_bytes=0, **kwargs):
         
         """
         Read binary file.
         
         Args:
             location_file: Location of the data.
-            out_type (str): type of the result: ``'array'`` for numpy array, ``'table'`` for :class:`.DataTable` object.
+            out_type (str): type of the result: ``'array'`` for numpy array, ``'pandas'`` for pandas DataFrame, ``'table'`` for :class:`.DataTable` object,
+                or ``'default'`` (determined by the library default; ``'table'`` by default)
             dtype: :class:`numpy.dtype` describing the data.
             columns: either number if columns, or a list of columns names.
             packing (str): The way the 2D array is packed. Can be either
@@ -396,7 +404,6 @@ class BinaryTableInputFileFormatter(IInputFileFormat):
             data=np.column_stack([data])
         if preamble_rows_num is not None and len(data)!=preamble_rows_num:
             raise ValueError("supplied rows number {0} disagrees with extracted form preamble {1}".format(len(data),preamble_rows_num))
-        #data=table_to_datatype(data,columns=columns,out_type=out_type)
         data=parse_csv.columns_to_table([data[:,i] for i in range(data.shape[1])],columns=columns,out_type=out_type)
         return datafile.DataFile(data=data,filetype="bin")
         
@@ -415,7 +422,7 @@ def load(path=None, input_format=None, loc="file", return_file=False, **kwargs):
             otherwise, return just the file data.
     
     `**kwargs` are passed to the file formatter used to read the data
-    (see :class:`CSVTableInputFileFormat`, :class:`DictionaryInputFileFormat` and :class:`BinaryTableInputFileFormatter` for the possible arguments).
+    (see :meth:`CSVTableInputFileFormat.read_file`, :meth:`DictionaryInputFileFormat.read_file` and :meth:`BinaryTableInputFileFormatter.read_file` for the possible arguments).
     The default format names are:
     
         - ``'generic'``: Generic file format. Attempt to autodetect, raise :exc:`IOError` if unsuccessful;
