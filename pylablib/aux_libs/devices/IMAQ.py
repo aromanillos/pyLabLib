@@ -66,6 +66,8 @@ class IMAQCamera(interface.IDevice):
         self.init_done=True
         self._triggers_in={}
         self._triggers_out={}
+        self._serial_term_write=""
+        self._serial_datatype="bytes"
 
         self.open()
 
@@ -164,7 +166,7 @@ class IMAQCamera(interface.IDevice):
         Return tuple ``(hstart, hend, vstart, vend)``.
         """
         t,l,h,w=lib.imgSessionGetROI(self.sid)
-        return l,t,l+w,t+h
+        return l,l+w,t,t+h
     def set_roi(self, hstart=0, hend=None, vstart=0, vend=None):
         """
         Setup camera ROI.
@@ -278,6 +280,77 @@ class IMAQCamera(interface.IDevice):
         lib.imgSessionTriggerClear(self.sid)
         self._triggers_in={}
         self._triggers_out={}
+
+
+    def setup_serial_params(self, write_term="", datatype="bytes"):
+        """
+        Setup default serial communication parameters.
+
+        Args:
+            write_term: default termintor character to be added to the sent messages
+            datatype: type of the result of read commands; can be ``"bytes"`` (return raw bytes), or ``"str"`` (convert into UTF-8 string)
+        """
+        self._serial_term_write=write_term
+        self._serial_datatype=datatype
+    def serial_write(self, msg, timeout=3., term=None):
+        """
+        Write message into CameraLink serial port.
+        
+        Args:
+            timeout: operation timeout (in seconds)
+            term: additional write terminator character to add to the message;
+                if ``None``, use the value set up using :meth:`setup_serial_params` (by default, no additional terminator)
+        """
+        try:
+            if term is None:
+                term=self._serial_term_write
+            msg=py3.as_builtin_bytes(msg)+py3.as_builtin_bytes(term)
+            return lib.imgSessionSerialWrite(self.sid,msg,int(timeout*1000))
+        except IMAQError as e:
+            if e.name=="IMG_ERR_SERIAL_WRITE_TIMEOUT":
+                raise_from(IMAQTimeoutError(),None)
+            else:
+                raise
+    def serial_read(self, n, timeout=3., datatype=None):
+        """
+        Read specified number of bytes from CameraLink serial port.
+        
+        Args:
+            n: number of bytes to read
+            timeout: operation timeout (in seconds)
+            datatype: return datatype; can be ``"bytes"`` (return raw bytes), or ``"str"`` (convert into UTF-8 string)
+                if ``None``, use the value set up using :meth:`setup_serial_params` (by default, ``"bytes"``)
+        """
+        try:
+            msg,_=lib.imgSessionSerialReadBytes(self.sid,int(timeout*1000),n)
+            datatype=datatype or self._serial_datatype
+            return msg if datatype=="bytes" else py3.as_str(msg)
+        except IMAQError as e:
+            if e.name=="IMG_ERR_SERIAL_READ_TIMEOUT":
+                raise_from(IMAQTimeoutError(),None)
+            else:
+                raise
+    def serial_readline(self, timeout=3., datatype=None):
+        """
+        Read bytes from CameraLink serial port until the termination character (defined in camera file) is encountered.
+        
+        Args:
+            timeout: operation timeout (in seconds)
+            datatype: return datatype; can be ``"bytes"`` (return raw bytes), or ``"str"`` (convert into UTF-8 string)
+                if ``None``, use the value set up using :meth:`setup_serial_params` (by default, ``"bytes"``)
+        """
+        try:
+            msg,_=lib.imgSessionSerialRead(self.sid,int(timeout*1000))
+            datatype=datatype or self._serial_datatype
+            return msg if datatype=="bytes" else py3.as_str(msg)
+        except IMAQError as e:
+            if e.name=="IMG_ERR_SERIAL_READ_TIMEOUT":
+                raise_from(IMAQTimeoutError(),None)
+            else:
+                raise
+    def serial_flush(self):
+        """Flush CameraLink serial port"""
+        lib.imgSessionSerialFlush(self.sid)
 
 
     def _get_ctypes_buffer(self):
