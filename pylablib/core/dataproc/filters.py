@@ -275,8 +275,8 @@ def _decimate(wf, n=1, dec_mode="skip", axis=0, mode="drop"):
         axis (int): Axis along which to perform the decimation.
         mode (str): Determines what to do with the last bin if it's incomplete. Can be either ``'drop'`` (omit the last bin) or ``'leave'`` (keep it).
     """
-    wrapper=wrap(wf)
-    wf=np.asarray(wf)
+    wf,wf_orig=np.asarray(wf),wf
+    wrapper=wrap(wf_orig) if wf.ndim<3 else None
     if dec_mode=="bin" or dec_mode=="mean":
         res=_decimation_filter(wf,np.mean,n,axis=axis,mode=mode)
     elif dec_mode=="sum":

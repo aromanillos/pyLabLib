@@ -256,6 +256,8 @@ class QThreadController(QtCore.QObject):
                 self.thread.quit_sync()
         except threadprop.InterruptExceptionStop:
             self.thread.quit_sync()
+        finally:
+            self.poke()  # add a message into the event loop, so that it executed and detects that the thread.quit was called
     finished=QtCore.pyqtSignal()
     @exsafeSlot()
     def _on_finish_event(self):
@@ -280,6 +282,7 @@ class QThreadController(QtCore.QObject):
             self.notify_exec("stop")
             _unregister_controller(self)
             self.thread.quit() # stop event loop (no regular messages processed after this call)
+            self.poke()  # add a message into the event loop, so that it executed and detects that the thread.quit was called
             with self._lifetime_state_lock:
                 self._lifetime_state="stopped"
     @QtCore.pyqtSlot()
@@ -304,13 +307,16 @@ class QThreadController(QtCore.QObject):
                 time_left=ctd.time_left()
                 if time_left:
                     self._wait_timer.start(max(int(time_left*1E3),1),self)
-                    threadprop.get_app().processEvents(QtCore.QEventLoop.WaitForMoreEvents)
+                    threadprop.get_app().processEvents(QtCore.QEventLoop.AllEvents|QtCore.QEventLoop.WaitForMoreEvents)
                     self._wait_timer.stop()
                 else:
                     self.check_messages()
                     raise threadprop.TimeoutThreadError()
             else:
-                threadprop.get_app().processEvents(QtCore.QEventLoop.WaitForMoreEvents)
+                threadprop.get_app().processEvents(QtCore.QEventLoop.AllEvents|QtCore.QEventLoop.WaitForMoreEvents)
+            # looks like sometimes processEvents(QtCore.QEventLoop.WaitForMoreEvents) returns and marks event (signal) as processed, but only processes it on the next processEvents call
+            # therefore, need extra call to make sure all events are processed
+            threadprop.get_app().processEvents(QtCore.QEventLoop.AllEvents)
             done,value=done_check()
             if done:
                 return value
@@ -991,7 +997,7 @@ class QTaskThread(QMultiRepeatingThreadController):
         QMultiRepeatingThreadController.__init__(self,name=name,signal_pool=signal_pool)
         self.setupargs=setupargs or []
         self.setupkwargs=setupkwargs or {}
-        self._directed_signal.connect(self._on_directed_signal)
+        self._directed_signal.connect(self._on_directed_signal,QtCore.Qt.QueuedConnection)
         self._commands={}
         self._sched_order=[]
         self._signal_schedulers={}
