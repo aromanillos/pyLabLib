@@ -171,7 +171,7 @@ class ITableDictionaryEntry(IDictionaryEntry):
         desc["__data_type__"]="table"
         columns=self.columns
         if isinstance(data,datatable.DataTable):
-            desc["__cont_type__"]="datatable"
+            desc["__cont_type__"]="table"
             if columns is None:
                 columns=data.get_column_names()
             elif len(data.get_column_names())!=len(columns):
@@ -203,6 +203,8 @@ class ITableDictionaryEntry(IDictionaryEntry):
         columns=desc.get("columns",None)
         data=desc.get("data",data)
         out_type=desc.get("__cont_type__",out_type)
+        if out_type=="datatable":
+            out_type="table"
         if data is None:
             raise ValueError("can't load {0} with format {1}".format(desc,"inline"))
         if len(data)==0:
