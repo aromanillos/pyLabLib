@@ -618,9 +618,13 @@ def from_string_partial(value, delimiters=_delimiters_regexp, case_sensitive=Tru
         for label,_,_,from_str in _conversion_classes:
             if value.startswith(label+"("):
                 end,parsed=from_string_partial(value[len(label):],delimiters=delimiters,case_sensitive=case_sensitive,parenthesis_rules=parenthesis_rules,use_classes=use_classes,return_string=return_string)
-                if isinstance(parsed,tuple):
-                    end,res=end+len(label)+1,from_str(res)
-                    break
+                if return_string:
+                    if parsed.startswith("(") and parsed.endswith(")"):
+                        end,res=end+len(label)+1,parsed
+                else:
+                    if isinstance(parsed,tuple):
+                        end,res=end+len(label)+1,from_str(*parsed)
+                        break
     if end is not None:
         if return_string:
             res=value[:end]
