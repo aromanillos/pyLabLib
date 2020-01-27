@@ -145,7 +145,7 @@ class CTypesWrapper(object):
             rvref ([bool]): determines if the corresponding return-by-pointer arguments need to be wrapped into :func:`ctypes.byref` (most common case),
                 or passed as is (e.g., for manually prepared buffers).
             rvnames ([str]): names of returned values inside the returned named tuple. By default, return standard un-named tuple.
-                If any name is ``None``, omit that value from tthe resulting tuple.
+                If any name is ``None``, omit that value from the resulting tuple.
             tuple_single_retval (bool): determines if a single return values gets turned into a single-element tuple.
             errcheck: error-checking function which is automatically called for the return value; no function by default.
         """

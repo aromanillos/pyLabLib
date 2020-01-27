@@ -68,6 +68,14 @@ pylablib.core.utils.iterator module
     :undoc-members:
     :show-inheritance:
 
+pylablib.core.utils.library\_parameters module
+----------------------------------------------
+
+.. automodule:: pylablib.core.utils.library_parameters
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pylablib.core.utils.log module
 ------------------------------
 

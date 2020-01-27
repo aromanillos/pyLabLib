@@ -113,7 +113,7 @@ class ANC300(backend_mod.IBackendWrapper):
         """
         Measure axis capacitance; finish in the GND mode.
         
-        If ``wait==True``, wait unitl the capacitance measurement is finished (takes about a second per axis).
+        If ``wait==True``, wait until the capacitance measurement is finished (takes about a second per axis).
         """
         if axis=="all":
             for ax in self.axes:
@@ -164,7 +164,7 @@ class ANC300(backend_mod.IBackendWrapper):
         return self.get_frequency(axis)
     def get_capacitance(self, axis, measure=False):
         """
-        Get capacitance mesurement on the axis.
+        Get capacitance measurement on the axis.
         
         If ``measure==True``, re-measure axis capacitance (takes about a second); otherwise, get the last measurement value.
         """
@@ -391,7 +391,7 @@ class ANC350(backend_mod.IBackendWrapper):
 
 
     def enable_updates(self, enabled=True):
-        """Enable or disable periodic TELL upates"""
+        """Enable or disable periodic TELL updates"""
         self.set_value(0x0145,0,1 if enabled else 0)    
     def get_hardware_id(self):
         """Return device HWID (by default -1)"""

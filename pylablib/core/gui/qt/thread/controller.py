@@ -495,7 +495,7 @@ class QThreadController(QtCore.QObject):
         """
         Set a 'function' variable.
 
-        Acts as a thread variable to the extrnal user, but instead of reading a stored value, it executed a function instead.
+        Acts as a thread variable to the external user, but instead of reading a stored value, it executed a function instead.
         Note, that the function is executed in the caller thread (i.e., the thread which tries to access the variable),
         so use of synchronization methods (commands, signals, locks) is highly advised.
 
@@ -749,7 +749,7 @@ class QMultiRepeatingThreadController(QThreadController):
     """
     Thread which allows to set up and run jobs and batch jobs with a certain time period, and execute commands in the meantime.
 
-    Mostly serves as a base to a much more flexible :class:`QTaskThread` class; should rarele be considered directly.
+    Mostly serves as a base to a much more flexible :class:`QTaskThread` class; should rarely be considered directly.
 
     Args:
         name(str): thread name (by default, generate a new unique name)
@@ -828,7 +828,7 @@ class QMultiRepeatingThreadController(QThreadController):
         The parameters are the same as for :meth:`add_batch_job`. If any of them are ``None``, don't change them.
         If ``stop==True``, stop the job before changing the parameters;
         otherwise the job is continued with the previous parameters (including cleanup) until it is stopped and restarted.
-        If ``restart==True``, restart the job after changing the paramteres.
+        If ``restart==True``, restart the job after changing the parameteres.
         """
         if name not in self.batch_jobs:
             raise ValueError("job {} doesn't exists".format(name))
@@ -988,7 +988,7 @@ class QTaskThread(QMultiRepeatingThreadController):
         finalize_task: executed on thread cleanup (attempts to execute in any case, including exceptions)
         process_signal: process a directed signal (signal with ``dst`` equal to this thread name); by default, does nothing
     """
-    ## Action performed when another thread explicitly calls a method corresponding to a command (which is usally a typo)
+    ## Action performed when another thread explicitly calls a method corresponding to a command (which is usually a typo)
     ## Can be used to overload default behavior in children classes or instances
     ## Can be ``"warning"``, which prints warning about this call (default),
     ## or one of the accessor names (e.g., ``"c"`` or ``"q"``), which routes the call through this accessor
@@ -1103,7 +1103,7 @@ class QTaskThread(QMultiRepeatingThreadController):
                 ``"skip_newest"`` (skip the most recent call, place the current), ``"skip_oldest"`` (skip the oldest call in the queue, place the current),
                 ``"wait"`` (wait until queue has at least one free spot, place the call),
                 or ``"call"`` (execute the call directly in the calling thread; should be used with caution).
-            priority: command priority; higher-prioirity signals and commands are always executed before the lower-priority ones.
+            priority: command priority; higher-priority signals and commands are always executed before the lower-priority ones.
         """
         if name in self._commands:
             raise ValueError("command {} already exists".format(name))
@@ -1142,7 +1142,7 @@ class QTaskThread(QMultiRepeatingThreadController):
             tags: signal tag or list of tags to filter the subscription (any tag by default).
             filt(callable): additional filter function which takes 4 arguments: signal source, signal destination, signal tag, signal value,
                 and checks whether signal passes the requirements.
-            priority(int): subscribed signal priority; higher-prioirity signals and commands are always executed before the lower-priority ones.
+            priority(int): subscribed signal priority; higher-priority signals and commands are always executed before the lower-priority ones.
             limit_queue(int): limits the maximal number of scheduled calls
                 0 or negative value means no limit (not recommended, as it can unrestrictedly bloat the queue)
             on_full_queue: action to be taken if the call can't be scheduled (i.e., :meth:`.QQueueScheduler.can_schedule` returns ``False``);

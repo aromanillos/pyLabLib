@@ -173,7 +173,7 @@ class ParamTable(QtWidgets.QWidget):
         Add a virtual table element.
 
         Doesn't correspond to any actual widget, but behaves very similarly from the application point of view
-        (its value can be set or read, it has on-hcange events, it can have indicator).
+        (its value can be set or read, it has on-change events, it can have indicator).
         """
         value_handler=values_module.VirtualValueHandler(value)
         if add_indicator is None:

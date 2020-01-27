@@ -63,7 +63,7 @@ class QCallResultSynchronizer(QThreadNotifier):
             return default
 
 class QDummyResultSynchronizer(object):
-    """Dummy result synchronizer for call which don't requrie result synchronization (e.g., signals)"""
+    """Dummy result synchronizer for call which don't require result synchronization (e.g., signals)"""
     def notify(self, value):
         pass
 
@@ -75,7 +75,7 @@ class QScheduledCall(object):
         func: callable to be invoked in the destination thread
         args: arguments to be passed to `func`
         kwargs: keyword arguments to be passed to `func`
-        result_synchronizer: result synchronzier object; can be ``None`` (create new :class:`QCallResultSynchronizer`),
+        result_synchronizer: result synchronizer object; can be ``None`` (create new :class:`QCallResultSynchronizer`),
             ``"async"`` (no result synchronization), or a :class:`QCallResultSynchronizer` object. 
     """
     TCallback=collections.namedtuple("TCallback",["func","pass_result","call_on_fail"])
@@ -121,7 +121,7 @@ class QScheduledCall(object):
         Callback is not provided with any arguments.
         If ``pass_result==True``, pass function result to the callback (or ``None`` if call failed); otherwise, pass no arguments.
         If ``callback_on_fail==True``, call it even if the original call raised an exception.
-        `position` specifies callback position in the call list (by defailt, end of the list).
+        `position` specifies callback position in the call list (by default, end of the list).
         """
         cb=self.TCallback(callback,pass_result,call_on_fail)
         if position is None:
@@ -175,7 +175,7 @@ class QScheduler(object):
             pass_result (bool): if ``True``, pass `func` result as a single argument to the callback; otherwise, give no arguments
             callback_on_fail (bool): if ``True``, execute the callback on call fail or skip (if it requires an argument, ``None`` is supplied);
                 otherwise, only execute it if the call was successfull
-            sync_result: if ``True``, the call has a default result synchrnizer; otherwise, no synchronization is made.
+            sync_result: if ``True``, the call has a default result synchronizer; otherwise, no synchronization is made.
         """
         result_synchronizer=None if sync_result else "async"
         scheduled_call=QScheduledCall(func,args,kwargs,result_synchronizer=result_synchronizer)

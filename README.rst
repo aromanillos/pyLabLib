@@ -14,6 +14,4 @@ Some major parts include:
     - A bunch more utilities dealing with file system (creating, moving and removing folders, zipping/unzipping, path normalization), network (simplified interface for client and server sockets), strings (serializing and de-serializing values), function introspection, and more.
     - Additional tools for GUI generation and simpler multithreading built on top PyQt5 *(still in development stage: not completely documented, code organization and interfaces can change in later versions)*.
 
-The most recent version library is available on GitHub (https://github.com/AlexShkarin/pyLabLib), and the documentation can be found at http://pylablib.readthedocs.io/ .
-
-For a more comprehensive, specialized, and recent version of the library (also specific dll's required for some devices), check out `dev` branch of the GitHub repository.
+The most recent version of the library is available on GitHub (https://github.com/AlexShkarin/pyLabLib), and the documentation can be found at http://pylablib.readthedocs.io/ .

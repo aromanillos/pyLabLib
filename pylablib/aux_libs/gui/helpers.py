@@ -48,7 +48,7 @@ class StreamFormerThread(controller.QTaskThread):
         pass
     def prepare_new_data(self, columns):
         """
-        Prepare a newly acquried chunk.
+        Prepare a newly acquired chunk.
         
         `column` is a dictionary ``{name: data}`` of newly acquired data,
         where ``name`` is a channel name, and ``data`` is a list of one or more newly acquired values.
@@ -158,7 +158,7 @@ class StreamFormerThread(controller.QTaskThread):
             """
             Return length of the stored data.
 
-            Return 0 if no data is ready, or -1 if "infinte" amount of data is ready (e.g., channel is off)
+            Return 0 if no data is ready, or -1 if "infinite" amount of data is ready (e.g., channel is off)
             """
             return -1 if ((not self.enabled) or (not self.required)) else len(self.queue)
         def enable(self, enable=True):
@@ -226,7 +226,7 @@ class StreamFormerThread(controller.QTaskThread):
             expand_list (bool): if ``True`` and the received value is list, assume that it contains several datapoints and add them sequentially
                 (note that this would generally required setting `max_queue_len`>1, otherwise only the last received value will show up)
             pure_func (bool): if ``True``, assume that fast consecutive calls to `func` return the same result, and the function has no side-effects
-                (in this case, several consecutive calls to `func` are approxiamted by a single call result repeated necessary number of times)
+                (in this case, several consecutive calls to `func` are approximated by a single call result repeated necessary number of times)
             default: default channel value
         """
         if name in self.channels:

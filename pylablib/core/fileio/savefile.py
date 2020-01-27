@@ -129,16 +129,19 @@ class CSVTableOutputFileFormat(ITextOutputFileFormat):
         save_time (bool): If ``True``, append the file creation time in the end.
         columns_delimiter (str): Used to separate entries in a row.
         custom_reps (str): If not ``None``, defines custom representations to be passed to :func:`.utils.string.to_string` function.
+        use_rep_classes (bool): If ``True``, use representation classes for Dictionary entries (e.g., numpy arrays will be represented as ``"array([1, 2, 3])"`` instead of just ``"[1, 2, 3]"``);
+            This improves storage fidelity, but makes result harder to parse (e.g., by external string parsers).
         **kwargs (dict): Default `**kwargs` values for the :meth:`IOutputFileFormat.write` method.
     """
-    def __init__(self, save_props=True, save_comments=True, save_time=True, save_columns=True, columns_delimiter="\t", custom_reps=None, **kwargs):
+    def __init__(self, save_props=True, save_comments=True, save_time=True, save_columns=True, columns_delimiter="\t", custom_reps=None, use_rep_classes=False, **kwargs):
         ITextOutputFileFormat.__init__(self,"csv",save_props,save_comments,save_time,default_kwargs=kwargs)
         self.save_columns=save_columns
         self.columns_delimiter=columns_delimiter
         self.custom_reps=custom_reps
+        self.use_rep_classes=use_rep_classes
         
     def get_table_line(self, line):
-        line=[string_utils.to_string(e,"entry",self.custom_reps) for e in line]
+        line=[string_utils.to_string(e,"entry",self.custom_reps,use_classes=self.use_rep_classes) for e in line]
         return self.columns_delimiter.join(line)
     def get_columns_line(self, columns):
         if self.save_columns:

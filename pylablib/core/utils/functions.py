@@ -156,7 +156,7 @@ class FunctionSignature(object):
                 cls=self.cls,obj=self.obj,name=self.name,doc=self.doc)
     def as_simple_func(self):
         """
-        Turn the signature into a simple function (as opposied to a bound method).
+        Turn the signature into a simple function (as opposed to a bound method).
 
         If the signature corresponds to a bound method, get rid of the first argument in the signature (``self``) and the bound object.
         Otherwise, return unchanged.

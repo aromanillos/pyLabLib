@@ -75,12 +75,12 @@ class DataFormat(object):
         else:
             raise ValueError("unrecognized SCPI border: {0}".format(border))
         if desc[:3]=="asc":
-#             split_desc=desc.split(",")
-#             if len(desc)>=2:
-#                 size=int(desc[1])
-#             else:
-#                 size=None
-#             return DataFormat(size,"ascii",None)
+            # split_desc=desc.split(",")
+            # if len(desc)>=2:
+            #     size=int(desc[1])
+            # else:
+            #     size=None
+            # return DataFormat(size,"ascii",None)
             return DataFormat(None,"ascii",None)
         split_desc=desc.split(",")
         if len(split_desc)<2:

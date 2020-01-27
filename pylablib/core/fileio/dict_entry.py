@@ -96,10 +96,10 @@ def add_entry_class(cls, branch_predicate, object_predicate=None):
     Args:
         cls: the :class:`IDictionaryEntry` subclass whose `:meth:`build_entry` and :meth:`from_dict` methods will be used
         branch_predicate: predicate used to determine whether the specified subclass is used in`:func:`from_dict` function;
-            it is a function which takes a single argument (dictionary branch) and returns ``True`` if the conversion should be delegetad to the `subclass`
+            it is a function which takes a single argument (dictionary branch) and returns ``True`` if the conversion should be delegated to the `subclass`
             can be a string or a tuple of strings, in which case it is interpreted as passing branches with a given ``"_data_type__"`` value.
         object_predicate: predicate used to determine whether the specified subclass is used in`:func:`build_entry` function;
-            it is a function which takes a single argument (an object to be converted) and returns ``True`` if the conversion should be delegetad to the `subclass`
+            it is a function which takes a single argument (an object to be converted) and returns ``True`` if the conversion should be delegated to the `subclass`
             can be a type or a tuple of types, in which case it is interpreted as passing object of the given type;
             can also be ``None``, which means that the predicate always returns ``False``
             (i.e., this dictionary entries aren't created automatically on dictionary saving, but need to be created manually)
@@ -570,7 +570,7 @@ class ExpandedContainerDictionaryEntry(IDictionaryEntry):
         elif isinstance(self.data,dict):
             clabel="dict"
         else:
-            raise ValueError("unrecognzied container type of {}".format(self.data))
+            raise ValueError("unrecognized container type of {}".format(self.data))
         d=dictionary.Dictionary()
         d["__data_type__"]="exp_container"
         d["container_type"]=clabel

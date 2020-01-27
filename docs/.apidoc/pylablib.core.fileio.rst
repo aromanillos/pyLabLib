@@ -28,14 +28,6 @@ pylablib.core.fileio.dict\_entry module
     :undoc-members:
     :show-inheritance:
 
-pylablib.core.fileio.errors module
-----------------------------------
-
-.. automodule:: pylablib.core.fileio.errors
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 pylablib.core.fileio.loadfile module
 ------------------------------------
 

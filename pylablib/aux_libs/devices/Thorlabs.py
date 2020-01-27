@@ -440,7 +440,7 @@ class KDC101(KinesisDevice):
         """
         Get current velocity parameters ``(max_velocity, acceleration)``
         
-        If ``scale==True``, return these in counts/sec and counts/sec^2 respecively; otherwise, return in internal units.
+        If ``scale==True``, return these in counts/sec and counts/sec^2 respectively; otherwise, return in internal units.
         """
         self.send_comm_nodata(0x0414,1)
         msg=self.recv_comm_data()
@@ -455,7 +455,7 @@ class KDC101(KinesisDevice):
         """
         Set current velocity parameters.
         
-        The parameters are given in counts/sec and counts/sec^2 respecively (as returned by :meth:`get_velocity_params` with ``scale=True``).
+        The parameters are given in counts/sec and counts/sec^2 respectively (as returned by :meth:`get_velocity_params` with ``scale=True``).
         If `acceleration` is ``None``, use current value.
         """
         if acceleration is None:

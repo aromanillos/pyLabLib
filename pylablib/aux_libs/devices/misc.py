@@ -34,7 +34,7 @@ def get_os_lib_folder():
     else:
         return os.path.join(os.environ["WINDIR"],"SysWOW64")
 default_placing_message="The libraries should be placed in {} or in {}".format(default_lib_folder,get_os_lib_folder())
-default_source_message="in the pyLabLib GitHub repository (located in 'pylablib\\{}' folder of the dev branch)".format(default_rel_lib_folder)
+default_source_message="in the pyLabLib GitHub repository (located in 'pylablib\\{}' folder)".format(default_rel_lib_folder)
 
 def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, error_message=None):
     """

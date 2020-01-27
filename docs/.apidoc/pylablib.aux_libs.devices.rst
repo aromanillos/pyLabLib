@@ -172,6 +172,14 @@ pylablib.aux\_libs.devices.Lakeshore module
     :undoc-members:
     :show-inheritance:
 
+pylablib.aux\_libs.devices.LaserQuantum module
+----------------------------------------------
+
+.. automodule:: pylablib.aux_libs.devices.LaserQuantum
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pylablib.aux\_libs.devices.LighthousePhotonics module
 -----------------------------------------------------
 

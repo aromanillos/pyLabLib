@@ -138,10 +138,10 @@ class SharedMemIPCChannel(PipeIPCChannel):
 TShmemVarDesc=collections.namedtuple("TShmemVarDesc",["offset","size","kind","fixed_size"])
 class SharedMemIPCTable(object):
     """
-    Shared memory table for exchanging shared veriables between processes.
+    Shared memory table for exchanging shared variables between processes.
 
     Can be used instead of channels for variables which are rarely changed but frequently checked (e.g., status),
-    or when synchrinization of sending and receiving might be difficult
+    or when synchronization of sending and receiving might be difficult
     """
     _default_array_size=2**24
     def __init__(self, pipe_conn=None, arr=None, arr_size=None, lock=True):
@@ -180,7 +180,7 @@ class SharedMemIPCTable(object):
         `size` determines maximal variable size in bytes. If the actual size ever exceeds it, an exception will be raised.
         `kind` determines the way to convert variable into bytes; can be ``"pickle"`` (universal, but large size overhead),
         ``"nps_###"``` (where ``###`` can be any numpy scalar dtype description, e.g., ``"float"`` or ``"<u2"``) for numpy scalars,
-        or ``"npa_###"``` (where ``###`` means the same as for ``nps``) for numpy arrays (in this case the array szie and shape need to be communicated separately).
+        or ``"npa_###"``` (where ``###`` means the same as for ``nps``) for numpy arrays (in this case the array size and shape need to be communicated separately).
         """
         self._check_variables()
         if name in self.var_table:
@@ -211,7 +211,7 @@ class SharedMemIPCTable(object):
         vlen=len(sval)
         if desc.fixed_size:
             if vlen!=desc.size:
-                raise RuntimeError("unexpected variabnle size {} (expected {})".format(vlen,desc.size))
+                raise RuntimeError("unexpected variable size {} (expected {})".format(vlen,desc.size))
             self.arr[desc.offset:desc.offset+vlen]=sval
         else:
             if vlen>desc.size-8:

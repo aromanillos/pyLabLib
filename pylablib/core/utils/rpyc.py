@@ -5,7 +5,7 @@ from . import module as module_utils, net, py3, strpack
 import numpy as np
 
 import importlib
-rpyc=importlib.import_module("rpyc") # Python 2 compatibiltiy (importing module from a module with the same name)
+rpyc=importlib.import_module("rpyc") # Python 2 compatibility (importing module from a module with the same name)
 import pickle
 import warnings
 import socket
@@ -91,7 +91,7 @@ class SocketTunnelService(rpyc.SlaveService):
 
     def tunnel_send(self, obj, packer=None):
         """
-        Send data throught the socket tunnel.
+        Send data through the socket tunnel.
 
         If `packer` is not ``None``, it defines a function to convert `obj` to a bytes string.
         """
@@ -104,7 +104,7 @@ class SocketTunnelService(rpyc.SlaveService):
             self.tunnel_socket.send_decllen(obj[pos:pos+self._tunnel_block_size])
     def tunnel_recv(self, unpacker=None):
         """
-        Receive data sent throught the socket tunnel.
+        Receive data sent through the socket tunnel.
 
         If `unpacker` is not ``None``, it defines a function to convert the received bytes string into an object.
         """
@@ -188,7 +188,7 @@ def connect_device_service(addr, port=18812, timeout=3, attempts=2):
     """
     Connect to the :class:`DeviceService` running at the given address and port
     
-    `timeout` and `attempts` define respectively timeout of a sincle connection attempt, and the number of attempts
+    `timeout` and `attempts` define respectively timeout of a single connection attempt, and the number of attempts
     (RPyC default is 3 seconds timeout and 6 attempts).
     """
     with warnings.catch_warnings():

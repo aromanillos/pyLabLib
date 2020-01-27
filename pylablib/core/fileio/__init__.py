@@ -7,8 +7,6 @@ from .savefile import save
 from . import location
 from .location import LocationName, LocationFile, get_location
 
-from . import errors
-
 from . import logfile
 from .logfile import LogFile
 

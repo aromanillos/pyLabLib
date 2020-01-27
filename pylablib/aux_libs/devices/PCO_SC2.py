@@ -209,7 +209,7 @@ class PCOSC2Camera(IDevice):
         """
         Get camera capabilities.
 
-        For description of the capabilites, see PCO SC2 manual.
+        For description of the capabilities, see PCO SC2 manual.
         """
         caps=self.v["sensor/strDescription/dwGeneralCapsDESC1"]
         return self._parse_flag_bits(caps,self._caps_desc1)
@@ -247,7 +247,7 @@ class PCOSC2Camera(IDevice):
         Get camera status.
 
         If ``full==True``, return current camera status as a set of enabled status states;
-        oherwise, return tuple ``(status, warnings, errors)`` with additional information about warnings and error.
+        otherwise, return tuple ``(status, warnings, errors)`` with additional information about warnings and error.
         """
         warn,err,stat=lib.PCO_GetCameraHealthStatus(self.handle)
         if full:
@@ -264,7 +264,7 @@ class PCOSC2Camera(IDevice):
         temp=lib.PCO_GetTemperature(self.handle)
         return (temp.ccd/10.,temp.cam,temp.pow)
     def get_conversion_factor(self):
-        """Get camera conversion factor (electrons per piexl value)"""
+        """Get camera conversion factor (electrons per pixel value)"""
         return lib.PCO_GetConversionFactor(self.handle)/100.
     
     ### Trigger controls ###
@@ -432,7 +432,7 @@ class PCOSC2Camera(IDevice):
         """
         Set frame time (frame acquisition period).
 
-        If the time can't be achieved even with zero frame delay and ``adjust_exposure==True``, try to recude the exposure to get the desired frame time;
+        If the time can't be achieved even with zero frame delay and ``adjust_exposure==True``, try to reduce the exposure to get the desired frame time;
         otherwise, keep the exposure the same.
         """
         exposure,frame_delay,curr_frame_time=self.get_timings()
@@ -701,7 +701,7 @@ class PCOSC2Camera(IDevice):
         `binary` determines if the binary line is present (it occupies first 14 pixels of the image).
         `ascii` determines if the ascii line is present (it is plane text timestamp, which takes first 8 rows and about 300 columns).
 
-        It is recommented to always have `binary` option on, since it is used to determine frame index for checking if there are any missing frames.
+        It is recommended to always have `binary` option on, since it is used to determine frame index for checking if there are any missing frames.
         """
         if binary:
             mode=2 if ascii else 1
@@ -783,7 +783,7 @@ class PCOSC2Camera(IDevice):
         Read multiple images specified by `rng` (by default, all un-read images).
 
         If ``return_info==True``, return tuple ``(images, info)``, where ``images`` is a list of frames,
-        and ``info`` is a list of frame info tuples extracted fro mteh binary status line (with only one member, frame index).
+        and ``info`` is a list of frame info tuples extracted from the binary status line (with only one member, frame index).
         Note that if the binary status line is not activated, frame info will be an arbitrary noise.
         If ``return_info==False``, just return a list of frames.
 
@@ -819,7 +819,7 @@ class PCOSC2Camera(IDevice):
 
     ### Combined functions ###
     def snap(self):
-        """Snap a single imag"""
+        """Snap a single image"""
         self.start_acquisition()
         self.wait_for_frame()
         frame=self.read_multiple_images()[0]

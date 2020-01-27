@@ -575,7 +575,7 @@ def doc_inherit(parent):
     """
     Wrapper for inheriting docstrings from parent classes.
     
-    Ttakes parent class as an argument and replaces the docstring of the wrapped function
+    Takes parent class as an argument and replaces the docstring of the wrapped function
     by the docstring of the same-named function from the parent class (if available).
     """
     def wrapper(func):
@@ -712,7 +712,7 @@ class StreamFileLogger(object):
         path: path to the destination logfile. The file is always appended.
         stream: an optional output stream into which the output will be duplicated; usually, the original stream which is being replaced
         lock: a thread lock object, which is used for any file writing operation;
-            necessary if replacing standard streams (such as ``sys.stdout`` or ``sys.stderr``) in a multithreading envornment.
+            necessary if replacing standard streams (such as ``sys.stdout`` or ``sys.stderr``) in a multithreading environment.
         autoflush: if ``True``, flush after any write operation into `stream`
 
     It is also possible to subclass the file and overload :meth:`write_header` method to write a header before the first file write operation during the execution.

@@ -29,7 +29,7 @@ The package requires `numpy <http://docs.scipy.org/doc/numpy/>`_, `scipy <http:/
 
 `PyVISA <https://pyvisa.readthedocs.io/en/master/>`_ and `pySerial <https://pythonhosted.org/pyserial/>`_ are the main packages used for the device communication. For some specific devices you might require ``pyft232``, ``pywinusb``, ``websocket-client``, or `nidaqmx <https://nidaqmx-python.readthedocs.io/en/latest/>`_ (keep in mind that it's different from the ``PyDAQmx`` package). Some devices have additional requirements (devices software or drivers installed, or some particular dlls), which are specified in their description.
 
-The package has been tested with Python 3.6 and Python 3.7. Python 2.7 might not be fully compatible anymore (although effort is made to preserve the compatibility, testing with Python 2.7 is far less extensive).
+The package has been tested with Python 3.6 and Python 3.7. Python 2.7 might not be fully compatible anymore (although effort is made to preserve the compatibility, testing with Python 2.7 is far less extensive). The last version officially supporting Python 2.7 is 0.4.0.
 
 .. _install-github:
 
@@ -37,9 +37,13 @@ The package has been tested with Python 3.6 and Python 3.7. Python 2.7 might not
 Installing from  GitHub
 -----------------------
 
-The most recent and extensive, but less documented, version of this library is available in the `dev` branch on GitHub at https://github.com/AlexShkarin/pyLabLib/tree/dev. To simply get the most recent version, you can download it as a zip-file (make sure `dev` branch is selected in the dropdown branch menu, so the file is called `pyLabLib-dev.zip`) and unpack it into any appropriate place (can be folder of the project you're working on, Python site-packages folder, or any folder added to Python path variable). Keep in mind that required packages will not be automatically installed, so this has to be done manually::
+The most recent and extensive, but less documented, version of this library is available on GitHub at https://github.com/AlexShkarin/pyLabLib/. To simply get the most recent version, you can download it as a zip-file and unpack it into any appropriate place (can be folder of the project you're working on, Python site-packages folder, or any folder added to Python path variable).
 
-    pip install future numpy scipy matplotlib numba rpyc
+To download the code of a specific version, you can choose it in the dropdown `Branch` menu under `Tags` tab. This is the same code as available on pip, but with additional device dlls.
+
+Keep in mind that required packages will not be automatically installed, so this has to be done manually::
+
+    pip install future numpy scipy matplotlib pandas numba rpyc
     pip install pyft232 pyvisa pyserial nidaqmx pywinusb websocket-client
     pip install pyqt5 sip pyqtgraph
 
@@ -47,7 +51,6 @@ In order to easily get updates, you can clone the repository to your computer. F
 
     git clone https://github.com/AlexShkarin/pyLabLib
     cd ./pyLabLib
-    git checkout dev
 
 Whenever you want to update to the most recent version, simply type ::
     

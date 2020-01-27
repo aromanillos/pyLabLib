@@ -14,6 +14,7 @@ Welcome to pyLabLib's documentation!
     dataproc
     utils
     devices
+    changelog
 
 Indices and tables
 ==================

@@ -83,7 +83,7 @@ class TMCM1100(backend.IBackendWrapper):
         """Set a given axis parameter (volatile; resets on power cycling)"""
         return self.query(5,parameter,value,addr=addr)
     def store_axis_parameter(self, parameter, value=None, addr=0):
-        """Store a given axis parameter in EEPROM (by defauly, value is the current value)"""
+        """Store a given axis parameter in EEPROM (by default, value is the current value)"""
         if value is not None:
             self.set_axis_parameter(parameter,value,addr=addr)
         return self.query(7,parameter,value,addr=addr)

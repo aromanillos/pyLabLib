@@ -163,7 +163,7 @@ class TracePlotter(QtWidgets.QWidget):
         """
         Attach :class:`TracePlotterController` object.
 
-        Called automatically in :meth:`TracePlotterController.setupUi`, deosn't need to be called explicitly.
+        Called automatically in :meth:`TracePlotterController.setupUi`, doesn't need to be called explicitly.
         """
         self.ctl=ctl
 
@@ -269,7 +269,7 @@ class TracePlotter(QtWidgets.QWidget):
         """
         Setup data source.
         
-        Add a data source (:class:`.TableAccumulator` or :class:`TableAccumulatorThread` instance used as a spirce of data for channels).
+        Add a data source (:class:`.TableAccumulator` or :class:`TableAccumulatorThread` instance used as a source of data for channels).
         The source is used to automatically grab channel data and receive reset commands.
         Not necessary, if the data is provided explicitly to :meth:`update_plot`.
         """

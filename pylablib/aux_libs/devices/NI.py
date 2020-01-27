@@ -676,7 +676,7 @@ class NIDAQ(IDevice):
             names(str or [str] or None): name or list of names of outputs (``None`` means all outputs).
 
         Return list of values ordered by `names` (or by :meth:`get_voltage_output_channels` if ``names==None``).
-        For continous waveforms, return the array containing a single repetition of the waveform.
+        For continuous waveforms, return the array containing a single repetition of the waveform.
         For finite waveforms, repeat the array containing the last outputted waveform.
         """
         if names is None:
@@ -692,7 +692,7 @@ class NIDAQ(IDevice):
             rate: clock rate; if 0, assume constant voltage output (default)
             sync_with_ai: if ``True``, the clock is synchronized to the analog input clock (the main clock);
                 note that in this case output changes only when the analog read task is running
-            continuous: if ``True``, any written waveform gets repeated continously; otherwise, it outputs written waveform only once,
+            continuous: if ``True``, any written waveform gets repeated continuously; otherwise, it outputs written waveform only once,
                 and then latches the output on the last value
             samps_per_chan: if ``continuous==False``, it determines number of samples to output before stopping
         """
@@ -711,7 +711,7 @@ class NIDAQ(IDevice):
         """
         Get analog output clock configuration.
 
-        Return tuple ``(rate, sync_with_ai, samps_per_chan, continous)``.
+        Return tuple ``(rate, sync_with_ai, samps_per_chan, continuous)``.
         """
         if self.ao_task.timing.samp_timing_type==nidaqmx.constants.SampleTimingType.ON_DEMAND:
             return (0,False,1000,True)

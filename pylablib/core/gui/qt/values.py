@@ -427,7 +427,7 @@ class ValuesTable(object):
         Add a virtual value element.
 
         Doesn't correspond to any actual widget, but behaves very similarly from the application point of view
-        (its value can be set or read, it has on-hcange events, it can have indicator).
+        (its value can be set or read, it has on-change events, it can have indicator).
         """
         return self.add_handler(name,VirtualValueHandler(value))
     _default_value_types=(edit.LVTextEdit,edit.LVNumEdit,QtWidgets.QLineEdit,QtWidgets.QCheckBox,QtWidgets.QPushButton,QtWidgets.QComboBox)
