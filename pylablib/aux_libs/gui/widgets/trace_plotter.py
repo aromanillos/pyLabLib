@@ -118,10 +118,10 @@ class TracePlotter(QtWidgets.QWidget):
     """
     Trace plotter object.
 
-    Built on top of :class:`pyqtgraph.PlotWidget` class.
+    Built on top of :class:`.pyqtgraph.PlotWidget` class.
 
     Intended for plotting of gradually-accumulated data;
-    designed to work tightly with :class:`.TableAccumulator` or :class:`TableAccumulatorThread` as data sources.
+    designed to work tightly with :class:`.TableAccumulator` or :class:`.TableAccumulatorThread` as data sources.
 
     Args:
         parent: parent widget
@@ -269,7 +269,7 @@ class TracePlotter(QtWidgets.QWidget):
         """
         Setup data source.
         
-        Add a data source (:class:`.TableAccumulator` or :class:`TableAccumulatorThread` instance used as a source of data for channels).
+        Add a data source (:class:`.TableAccumulator` or :class:`.TableAccumulatorThread` instance used as a source of data for channels).
         The source is used to automatically grab channel data and receive reset commands.
         Not necessary, if the data is provided explicitly to :meth:`update_plot`.
         """

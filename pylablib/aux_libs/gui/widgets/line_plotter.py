@@ -1,7 +1,7 @@
 """
 Simple PyQtGraph-based line plotter.
 
-A small expansion on top of :class:`pyqtgraph.PlotWidget` which allows for thread-safe plot updating.
+A small expansion on top of :class:`.pyqtgraph.PlotWidget` which allows for thread-safe plot updating.
 """
 
 import pyqtgraph
@@ -11,7 +11,7 @@ class LinePlotter(pyqtgraph.PlotWidget):
     """
     Line plotter object.
 
-    Built on top of :class:`pyqtgraph.PlotWidget` class.
+    Built on top of :class:`.pyqtgraph.PlotWidget` class.
 
     Args:
         parent: parent widget
@@ -31,7 +31,7 @@ class LinePlotter(pyqtgraph.PlotWidget):
         Add a trace plot.
 
         If caption is not ``None``, the trace is also added into the legend under the given caption.
-        All other arguments are passed to the underlying :meth:`pyqtgraph.PlotWidget.plot` method.
+        All other arguments are passed to the underlying :meth:`.pyqtgraph.PlotWidget.plot` method.
         """
         if name in self._traces:
             raise ValueError("trace {} already exists".format(name))

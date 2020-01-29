@@ -27,6 +27,8 @@ default_rel_lib_folder=get_default_lib_folder(absolute=False)
 
 def get_os_lib_folder():
     """Get default Windows DLL folder (``System32`` or ``SysWOW64``, depending on Python and Windows bitness)"""
+    if sys.platform!="win32":
+        return ""
     arch=platform.architecture()[0]
     winarch="64bit" if platform.machine().endswith("64") else "32bit"
     if winarch==arch:

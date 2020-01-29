@@ -63,11 +63,11 @@ This is a list of changes between each version.
 - Data processing
 
     * :class:`.fitting.Fitter` now takes default scale and limit as constructor arguments.
-    * :func:`.feature.multi_peakdet` has new ``norm_ratio`` argument.
+    * :func:`.feature.multi_scale_peakdet` has new ``norm_ratio`` argument.
     * :func:`.image.get_region` and :func:`.image.get_region_sum` take ``axis`` argument.
 
 - Miscellaneous
 
-    * Functions introspection module now supports Python 3 - style functions, and added a new function :func:`.function.funcsig`
+    * Functions introspection module now supports Python 3 - style functions, and added a new function :func:`.functions.funcsig`
     * :class:`.utils.general.StreamFileLogger` supports multiple destination paths
     * New network function :func:`.utils.net.get_all_local_addr` (return list of all local addresses on all interfaces) and :func:`.utils.net.get_local_hostname`

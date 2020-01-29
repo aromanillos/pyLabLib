@@ -40,6 +40,7 @@ extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.viewcode']
 
 autodoc_mock_imports = ['nidaqmx', 'visa', 'serial', 'ft232', 'PyQt5', 'pywinusb', 'pyqtgraph', 'websocket', 'zhinst', 'matplotlib', 'sip', 'rpyc', 'numba', 'pandas']
+autodoc_mock_imports += ['pylablib.aux_libs.devices.'+m for m in ["Andor_lib","AndorSDK3_lib","DCAM_lib","IMAQ_lib","IMAQdx_lib","PCO_SC2_lib","pfcam_lib"]]
 sys.modules['visa']=mock.Mock(VisaIOError=object, __version__='1.9.0')
 sys.modules['serial']=mock.Mock(SerialException=object)
 sys.modules['ft232']=mock.Mock(Ft232Exception=object)
