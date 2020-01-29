@@ -210,7 +210,6 @@ def power_spectral_density(trace, truncate=False, truncate_power=None, normaliza
     """
     column_names=["frequency","PSD"]
     ft=fourier_transform(trace, truncate=truncate, truncate_power=truncate_power, normalization=normalization, no_time=no_time, single_sided=single_sided, window=window, window_power_compensate=window_power_compensate)
-    return ft
     wrapped=wrap(ft)
     PSD=wrapped.from_columns((wrapped.c[0].real,abs(wrapped.c[1])**2),column_names,wrapped=False)
     return PSD
@@ -253,8 +252,8 @@ def get_correlations(ft_a, ft_b, zero_mean=True, normalization="none"):
     if (zero_mean):
         corr[len(corr)/2,1]=0.
     if normalization=="whole":
-        norm_a=(abs(ft_a[:,1])**2).sum()-abs(ft_a[len(ft_a)/2,1])**2;
-        norm_b=(abs(ft_b[:,1])**2).sum()-abs(ft_b[len(ft_b)/2,1])**2;
+        norm_a=(abs(ft_a[:,1])**2).sum()-abs(ft_a[len(ft_a)/2,1])**2
+        norm_b=(abs(ft_b[:,1])**2).sum()-abs(ft_b[len(ft_b)/2,1])**2
         corr[:,1]=corr[:,1]/(norm_a*norm_b)**.5
     elif normalization=="individual":
         norm_factors=abs(ft_a[:,1]*ft_b[:,1])
