@@ -101,6 +101,7 @@ Attocube ANC300                        Piezo slider controller           :mod:`A
 Attocube ANC350                        Piezo slider controller           :mod:`Attocube <pylablib.aux_libs.devices.Attocube>`                                 Only tested with USB connection
 Trinamic TMCM1110                      Stepper motor controller          :mod:`Trinamic <pylablib.aux_libs.devices.Trinamic>`
 Thorlabs KDC101                        DC servo motor controller         :mod:`Thorlabs <pylablib.aux_libs.devices.Thorlabs>`
+Thorlabs K10CR1                        Motorized rotation mount          :mod:`Thorlabs <pylablib.aux_libs.devices.Thorlabs>`
 Thorlabs FW102/202                     Motorized filter wheel            :mod:`Thorlabs <pylablib.aux_libs.devices.Thorlabs>`
 Thorlabs MFF                           Motorized flip mount              :mod:`Thorlabs <pylablib.aux_libs.devices.Thorlabs>`
 Cryomagnetics LM500/510                Cryogenic level meter             :mod:`Cryomagnetics <pylablib.aux_libs.devices.Cryomagnetics>`

@@ -355,7 +355,7 @@ class KDC101(KinesisDevice):
     Implements FTDI chip connectivity via pyft232 (virtual serial interface).
 
     Args:
-        conn: serial connection parameters (usually 8-digit device serial number).
+        conn(str): serial connection parameters (usually 8-digit device serial number).
     """
     def __init__(self, conn):
         KinesisDevice.__init__(self,conn)
@@ -481,6 +481,188 @@ class KDC101(KinesisDevice):
         self.send_comm_data(0x0448,b"\x01\x00"+strpack.pack_int(int(steps),4,"<"))
     def move_to(self, position):
         """Move to `position` (positive or negative)"""
+        self.send_comm_data(0x0453,b"\x01\x00"+strpack.pack_int(int(position),4,"<"))
+    def jog(self, direction):
+        """Jog in the given direction (``"+"`` or ``"-"``)"""
+        if not direction: # 0 or False also mean left
+            direction="-"
+        if direction in [1, True]:
+            direction="+"
+        if direction not in ["+","-"]:
+            raise KinesisError("unrecognized direction: {}".format(direction))
+        _jog_fw=(self._forward_pos and direction=="+") or ( (not self._forward_pos) and direction=="-")
+        self.send_comm_nodata(0x0457,1,1 if _jog_fw else 2)
+    _moving_status=["moving_fw","moving_bk","jogging_fw","jogging_bk"]
+    def is_moving(self):
+        """Check if motion is in progress"""
+        curr_status=self.get_status()
+        return any([s in curr_status for s in self._moving_status])
+    def wait_for_move(self, timeout=None):
+        """Wait until motion is done"""
+        return self.wait_for_status(self._moving_status,False,timeout=timeout)
+
+    def stop(self, immediate=False, sync=True, timeout=None):
+        """
+        Stop the motion.
+
+        If ``immediate==True`` make an abrupt stop; otherwise, slow down gradually.
+        If ``sync==True``, wait until the motion is stopped.
+        """
+        self.send_comm_nodata(0x0465,1,1 if immediate else 2)
+        if sync:
+            self.wait_for_stop(timeout=timeout)
+    def wait_for_stop(self, timeout=None):
+        """Wait until stopping operation is done"""
+        return self.wait_for_status(self._moving_status+["homing"],False,timeout=timeout)
+
+
+class K10CR1(KinesisDevice):
+    """
+    Thorlabs K10CR1 rotation stage.
+
+    Implements FTDI chip connectivity via pyft232 (virtual serial interface).
+
+    Args:
+        conn(str): serial connection parameters (usually 8-digit device serial number).
+    """
+    #  Implemented by Manuel Meierhofer
+    def __init__(self, conn):
+        KinesisDevice.__init__(self,conn)
+        self._forward_pos=False
+        self.add_background_comm(0x0464) # move completed
+        self.add_background_comm(0x0466) # move stopped
+        self.add_background_comm(0x0444) # homed
+        self._add_status_node("position",self.get_position)
+        self._add_status_node("status",self.get_status)
+        self._add_settings_node("velocity_params",self.get_velocity_params,self.set_velocity_params)
+
+    def get_status_n(self):
+        """
+        Get numerical status of the device.
+
+        For details, see APT communications protocol.
+        """
+        self.send_comm_nodata(0x0429,0x01)
+        data=self.recv_comm_data().data
+        return strpack.unpack_uint(data[2:6],"<")
+    status_bits=[(1<<0,"sw_bk_lim"),(1<<1,"sw_fw_lim"),
+                (1<<4,"moving_bk"),(1<<5,"moving_fw"),(1<<6,"jogging_bk"),(1<<7,"jogging_fw"),
+                (1<<9,"homing"),(1<<10,"homed"),(1<<12,"tracking"),(1<<13,"settled"),
+                (1<<14,"motion_error"),(1<<24,"current_limit"),(1<<31,"enabled")]
+    
+    def get_status(self):
+        """
+        Get device status.
+
+        Return list of status strings, which can include ``"sw_fw_lim"`` (forward limit switch reached),``"sw_bk_lim"`` (backward limit switch reached),
+        ``"moving_fw"`` (moving forward), ``"moving_bk"`` (moving backward),
+        ``"homing"`` (homing), ``"homed"`` (homing done), ``"tracking"``, ``"settled"``,
+        ``"motion_error"`` (excessive position error), ``"current_limit"`` (motor current limit exceeded), or ``"enabled"`` (motor is enabled).
+        """
+        status_n=self.get_status_n()
+        return [s for (m,s) in self.status_bits if status_n&m]
+    
+    def wait_for_status(self, status, enabled, timeout=None, period=0.05):
+        """
+        Wait until the given status (or list of status bits) is in the desired state.
+
+        `status` is a string or a list of strings describing the status bits to monitor; for possible values, see :meth:`get_status`.
+        If ``enabled==True``, wait until one of the given statuses is enabled; otherwise, wait until all given statuses are disabled.
+        `period` specifies status checking period (in s).
+        """
+        status=funcargparse.as_sequence(status)
+        for s in status:
+            funcargparse.check_parameter_range(s,"status",[s for _,s in self.status_bits])
+        ctd=general.Countdown(timeout)
+        while True:
+            curr_status=self.get_status()
+            if enabled and any([s in curr_status for s in status]):
+                return
+            if (not enabled) and all([s not in curr_status for s in status]):
+                return
+            if ctd.passed():
+                raise KinesisTimeoutError
+            time.sleep(0.05)
+
+    def home(self, sync=True, force=False, timeout=None):
+        """
+        Home the device.
+
+        If ``sync==True``, wait until homing is done (with the given timeout).
+        If ``force==False``, only home if the device isn't homed already.
+        """
+        if self.is_homed() and not force:
+            return
+        self.send_comm_nodata(0x0443,1)
+        if sync:
+            self.wait_for_home(timeout=timeout)
+    def is_homing(self):
+        """Check if homing is in progress"""
+        return "homing" in self.get_status()
+    def is_homed(self):
+        """Check if the device is homed"""
+        return "homed" in self.get_status()
+    def wait_for_home(self, timeout=None):
+        """Wait until the device is homes"""
+        return self.wait_for_status("homed",True,timeout=timeout)
+    
+    # Conversion between real and device units (see APT communications protocol, page 38)
+    _pos_conv = 136533 # in microsteps per degree
+    _vel_conv = 7329109 # in microsteps per degree
+    _acc_conv = 1502 # in microsteps per degree
+    
+    def get_velocity_params(self, scale=True):
+        """
+        Get current velocity parameters ``(max_velocity, acceleration)``
+        
+        If ``scale==True``, return these in degree/sec and degree/sec^2 respectively; otherwise, return in internal units.
+        """
+        self.send_comm_nodata(0x0414,1)
+        msg=self.recv_comm_data()
+        data=msg.data
+        acceleration=strpack.unpack_int(data[6:10],"<")
+        max_velocity=strpack.unpack_int(data[10:14],"<")
+        if scale:
+            acceleration/=self._acc_conv
+            max_velocity/=self._vel_conv
+        return max_velocity,acceleration
+    
+    def set_velocity_params(self, max_velocity, acceleration=None):
+        """
+        Set current velocity parameters.
+        
+        The parameters are given in counts/sec and counts/sec^2 respectively (as returned by :meth:`get_velocity_params` with ``scale=True``).
+        If `acceleration` is ``None``, use current value.
+        """
+        if acceleration is None:
+            acceleration=self.get_velocity_params(scale=False)[1]
+        else:
+            acceleration*=self._acc_conv
+        max_velocity*=self._vel_conv
+        data=b"\x01\x00"+b"\x00\x00\x00\x00"+strpack.pack_int(int(acceleration),4,"<")+strpack.pack_int(int(max_velocity),4,"<")
+        self.send_comm_data(0x0413,data)
+        return self.get_velocity_params()
+    
+    def get_position(self):
+        """Get current position (in degrees)"""
+        self.send_comm_nodata(0x0411,1)
+        msg=self.recv_comm_data()
+        data=msg.data
+        position = strpack.unpack_int(data[2:6],"<")/self._pos_conv
+        return position
+    def set_position_reference(self, position=0):
+        """Set position reference (actual motor position stays the same)"""
+        self.send_comm_data(0x0410,b"\x01\x00"+strpack.pack_int(int(position),4,"<"))
+        return self.get_position()
+    def move(self, angle=1):
+        """Move by `angle` (degree, positive or negative) from the current position"""
+        steps = angle*self._pos_conv
+        steps = round(steps)
+        self.send_comm_data(0x0448,b"\x01\x00"+strpack.pack_int(int(steps),4,"<"))
+    
+    def move_to(self, position):
+        """Move to `position` (degree, positive or negative)"""
+        position*=self._pos_conv
         self.send_comm_data(0x0453,b"\x01\x00"+strpack.pack_int(int(position),4,"<"))
     def jog(self, direction):
         """Jog in the given direction (``"+"`` or ``"-"``)"""
