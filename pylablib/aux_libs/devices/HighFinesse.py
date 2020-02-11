@@ -16,12 +16,12 @@ class WS(IDevice):
 
     Args:
         lib_path(str): path to the wlmData6.dll or wlmData7.dll (default is to use the library supplied with the package)
-        idx(int): wavemeter input index
+        idx(int): wavemeter input index (starts from 1)
         serv_path: path to server executable (last executed by default)
         version: wavemeter version (3-4 digit id number)
         hide_app: if ``True``, start the wavemeter application hidden; otherwise, start it on top
     """
-    def __init__(self, lib_path=None, idx=0, serv_path=None, version=None, hide_app=False, timeout=10.):
+    def __init__(self, lib_path=None, idx=1, serv_path=None, version=None, hide_app=False, timeout=10.):
         IDevice.__init__(self)
         error_message="The library is supplied with the designated HighFinesse wavemeter software, or {};\n{}".format(default_source_message,default_placing_message)
         if lib_path in [6,7,None]:
@@ -40,7 +40,7 @@ class WS(IDevice):
         self.dll.GetFrequencyNum.argtypes=[ctypes.c_long,ctypes.c_double]
         self.dll.GetWavelengthNum.restype=ctypes.c_double
         self.dll.GetWavelengthNum.argtypes=[ctypes.c_long,ctypes.c_double]
-        self.dll.GetExposureModeNum.restype=ctypes.c_bool
+        self.dll.GetExposureModeNum.restype=ctypes.c_long
         self.dll.GetExposureModeNum.argtypes=[ctypes.c_long,ctypes.c_bool]
         self.dll.SetExposureModeNum.restype=ctypes.c_long
         self.dll.SetExposureModeNum.argtypes=[ctypes.c_long,ctypes.c_bool]
@@ -111,7 +111,7 @@ class WS(IDevice):
                     -14:"ResERR_BadCalibrationSignal: The given wavelength does not match the connected calibration laser or its signal is of bad quality", 
                     -15:"ResERR_UnitNotAvailable: This is not a proper result unit"}
     def _check_setfunc_error(self, func_name, err):
-        if err>0:
+        if err>=0:
             return
         if err in self._SetFunc_err:
             raise HFError("{} returned error: {} ({})".format(func_name,err,self._SetFunc_err[err]))
@@ -168,10 +168,10 @@ class WS(IDevice):
 
     def get_exposure_mode(self):
         """Get the exposure mode (0 for manual, 1 for auto)"""
-        return self.dll.GetExposureModeNum(self.idx,0)
+        return bool(self.dll.GetExposureModeNum(self.idx,0))
     def set_exposure_mode(self, auto_exposure=True):
         """Get the exposure mode (manual or auto)"""
-        err=self.dll.GetExposureModeNum(self.idx,1 if auto_exposure else 0)
+        err=self.dll.SetExposureModeNum(self.idx,1 if auto_exposure else 0)
         self._check_setfunc_error("SetExposureModeNum",err)
         return self.get_exposure_mode()
 
