@@ -258,12 +258,12 @@ def _numpy_to_str(a, custom_representations=None):
     else:
         return "["+", ".join([_numpy_to_str(e,custom_representations=custom_representations) for e in a])+"]"
 
-_default_float_representaion="{:.12E}"
-_default_complex_representaion="{:.12E}"
+_default_float_representation="{:.12E}"
+_default_complex_representation="{:.12E}"
 _default_int_representation="{:d}"
 TConversionClass=collections.namedtuple("TConversionClass",["label","cls","to_str","from_str"])
 _conversion_classes=[("array",np.ndarray,_numpy_to_str,np.array)]
-def to_string(value, location="element", custom_representations=None, use_classes=False):
+def to_string(value, location="element", custom_representations=None, parenthesis_rules="text", use_classes=False):
     """
     Convert value to string with an option of modifying format string.
     
@@ -272,15 +272,21 @@ def to_string(value, location="element", custom_representations=None, use_classe
         location (str): Used for converting strings (see :func:`escape_string`).
         custom_representations (dict): dictionary ``{value_type: fmt}``,
             where value type can be ``'int'``, ``'float'`` or ``'complex'`` and `fmt` is a :meth:`str.format` string.
+        parenthesis_rules (str): determine how to deal with single-element tuples and complex numbers
+            can be ``"text"`` (single-element tuples are represented with simple parentheses, e.g., ``"(1)"``; complex number are represented without parentheses, e.g., ``"1+2j"``)
+            or ``"python"`` (single-element tuples are represented with a comma in the end, e.g., ``"(1,)"``; complex number are represented with parentheses, e.g., ``"(1+2j)"``)
         use_classes (bool): if ``True``, use additional representation classes for special objects
             (e.g., numpy arrays will be represented as ``"array([1, 2, 3])"`` instead of just ``"[1, 2, 3]"``).
             This improves conversion fidelity, but makes result harder to parse (e.g., by external string parsers).
     """
+    funcargparse.check_parameter_range(parenthesis_rules,"parenthesis_rules",{"text","python"})
+    kwargs={"custom_representations":custom_representations,"parenthesis_rules":parenthesis_rules,"use_classes":use_classes}
     tr=custom_representations or {}
     if isinstance(value,complex):
-        return tr.get("complex",_default_complex_representaion).format(complex(value))
+        val=tr.get("complex",_default_complex_representation).format(complex(value))
+        return val if parenthesis_rules=="text" else "("+val+")"
     if isinstance(value,float) or isinstance(value,np.floating):
-        return tr.get("float",_default_float_representaion).format(float(value))
+        return tr.get("float",_default_float_representation).format(float(value))
     if isinstance(value,bool):
         return str(value)
     if isinstance(value,int) or isinstance(value,np.long) or isinstance(value,np.integer):
@@ -288,20 +294,21 @@ def to_string(value, location="element", custom_representations=None, use_classe
     if isinstance(value,textstring):
         return escape_string(value, location=location)
     if isinstance(value,list):
-        return "["+", ".join(to_string(e,location="element",custom_representations=custom_representations,use_classes=use_classes) for e in value)+"]"
+        return "["+", ".join(to_string(e,location="element",**kwargs) for e in value)+"]"
     if isinstance(value, tuple):
-        return "("+", ".join(to_string(e,location="element",custom_representations=custom_representations,use_classes=use_classes) for e in value)+")"
+        val="("+", ".join(to_string(e,location="element",**kwargs) for e in value)+")"
+        return val if parenthesis_rules=="text" else val[:-1]+",)"
     if isinstance(value, set):
-        return "{"+", ".join(to_string(e,location="element",custom_representations=custom_representations,use_classes=use_classes) for e in value)+"}"
+        return "{"+", ".join(to_string(e,location="element",**kwargs) for e in value)+"}"
     if isinstance(value, dict):
         return "{"+", ".join("{}: {}".format(
-                to_string(k,location="element",custom_representations=custom_representations,use_classes=use_classes),
-                to_string(v,location="element",custom_representations=custom_representations,use_classes=use_classes))
+                to_string(k,location="element",**kwargs),
+                to_string(v,location="element",**kwargs))
                             for k,v in value.items())+"}"
     if isinstance(value,np.ndarray) and not use_classes:
         if np.ndim(value)==0:
-            return to_string(np.asscalar(value),custom_representations=custom_representations,use_classes=use_classes)
-        return to_string(list(value),custom_representations=custom_representations,use_classes=use_classes)
+            return to_string(np.asscalar(value),**kwargs)
+        return to_string(list(value),**kwargs)
     if use_classes:
         for label,cls,to_str,_ in _conversion_classes:
             if isinstance(value,cls):
@@ -470,10 +477,13 @@ def _convert_parenthesis_struct(struct, case_sensitive=True, parenthesis_rules="
     """
     Covert parsed parenthesis structure into python objects.
     
-    parenthesis_rules determine how to deal with empty entries (e.g., [1,,3]):
-        text: any empty entries are translated into ``empty_string`` values (i.e., ``[,] -> [empty_string, empty_string]``), except for completely empty structures (``[]`` or ``()``);
-        python: empty entries in the middle are not allowed; empty entries at the end are ignored (i.e., ``[2,] -> [2]``)
-            (single-element tuple can still be expressed in two ways: (e,) or (e)). 
+    `parenthesis_rules` determine how to deal with empty entries (e.g., ``[1,,3]``) and complex number representation (``"1+2j"`` vs. ``"(1+2j)"``):
+        - ``'text'``: any empty entries are translated into ``empty_string`` (i.e., ``[,] -> [empty_string, empty_string]``), except for completely empty structures (``[]`` or ``()``);
+            complex numbers are represented without parentheses, so that ``"(1+2j)"`` will be interpreted as a single-element tuple ``(1+2j,)``.
+        - ``'python'``: empty entries in the middle are not allowed; empty entries at the end are ignored (i.e., ``[2,] -> [2]``)
+            (single-element tuple can still be expressed in two ways: ``(e,)`` or ``(e)``);
+            complex numbers are by default represented with parentheses, so that ``"(1+2j)"`` will be interpreted as a complex number,
+            and only ``(1+2j,)``, ``((1+2j))`` or ``((1+2j),)`` as a single-element tuple.
     """
     funcargparse.check_parameter_range(parenthesis_rules,"parenthesis_rules",{"text","python"})
     elt_type,elt_val,_=struct
@@ -482,6 +492,18 @@ def _convert_parenthesis_struct(struct, case_sensitive=True, parenthesis_rules="
     elif elt_type in _quotation_characters:
         return elt_val
     elif elt_type in _parenthesis_pairs:
+        if parenthesis_rules=="python" and elt_type=="(" and len(elt_val)==1: # complex number check
+            val=elt_val[0]
+            if val[0]=="e" and _complex_re.match("("+val[1]+")"):
+                strval=val[1]
+                try:
+                    return complex(strval)
+                except ValueError:
+                    pass
+                try:
+                    return complex(strval.lower().replace("i","j"))
+                except ValueError:
+                    pass
         if parenthesis_rules=="text":
             if (len(elt_val)==1) and (elt_val[0][:2]==("e","")):
                 elt_val=[]
@@ -528,7 +550,7 @@ def _convert_parenthesis_struct(struct, case_sensitive=True, parenthesis_rules="
         raise ValueError("unrecognized element type: {0}".format(elt_type))
 
 
-_complex_re=re.compile(r"\((-?[\d.]*[+-])?[\d.]*[ij]\)")
+_complex_re=re.compile(r"\(([\d.+-Ee]*[+-])?[\d.+-Ee]*[ij]\)|([\d.+-Ee]*[+-])?[\d.+-Ee]*[ij]")
 def from_string(value, case_sensitive=True, parenthesis_rules="text", use_classes=True):
     """
     Parse a string.
@@ -538,11 +560,13 @@ def from_string(value, case_sensitive=True, parenthesis_rules="text", use_classe
     
     `case_sensitive` is applied when compared to ``None``, ``True`` or ``False``.
     
-    `parenthesis_rules` determine how to deal with empty entries (e.g., ``[1,,3]``):
-        - ``'text'``: any empty entries are translated into None (i.e., ``[,] -> [None, None]``), except for completely empty structures (``[]`` or ``()``);
+    `parenthesis_rules` determine how to deal with empty entries (e.g., ``[1,,3]``) and complex number representation (``"1+2j"`` vs. ``"(1+2j)"``):
+        - ``'text'``: any empty entries are translated into ``empty_string`` (i.e., ``[,] -> [empty_string, empty_string]``), except for completely empty structures (``[]`` or ``()``);
+            complex numbers are represented without parentheses, so that ``"(1+2j)"`` will be interpreted as a single-element tuple ``(1+2j,)``.
         - ``'python'``: empty entries in the middle are not allowed; empty entries at the end are ignored (i.e., ``[2,] -> [2]``)
-            (single-element tuple can still be expressed in two ways: ``(e,)`` or ``(e)``).
-    
+            (single-element tuple can still be expressed in two ways: ``(e,)`` or ``(e)``);
+            complex numbers are by default represented with parentheses, so that ``"(1+2j)"`` will be interpreted as a complex number,
+            and only ``(1+2j,)``, ``((1+2j))`` or ``((1+2j),)`` as a single-element tuple.
     `use_classes`: if ``True``, try to find additional representation classes for special objects
         (e.g., numpy arrays will be represented as ``"array([1, 2, 3])"`` instead of just ``"[1, 2, 3]"``).
     """

@@ -104,7 +104,7 @@ class IDataColumn(numclass.NumClass):
     def __array__(self): # property for compatibility with np.ufuncs
         return self.as_array()
     def __array_wrap__(self, arr, context=None):
-        return ArrayDataColumn(arr)
+        return ArrayDataColumn(arr) if np.ndim(arr)==1 else arr
         
     ## Copying ##
     def copy(self):

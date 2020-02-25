@@ -2,7 +2,10 @@
 Library for dealing with python module properties.
 """
 
-from imp import reload
+try:
+    from importlib import reload
+except ImportError:
+    from imp import reload
 
 import pkg_resources
 import sys
