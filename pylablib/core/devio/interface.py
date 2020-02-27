@@ -77,8 +77,8 @@ class IDevice(object):
         return self._add_info_node(path,"full_info",getter=getter,ignore_error=ignore_error,mux=mux)
     def _add_status_node(self, path, getter=None, ignore_error=(), mux=None):
         return self._add_info_node(path,"status",getter=getter,ignore_error=ignore_error,mux=mux)
-    def _add_settings_node(self, path, getter=None, setter=None, ignore_error=(), mux=None):
-        return self._add_info_node(path,"settings",getter=getter,setter=setter,ignore_error=ignore_error,mux=mux)
+    def _add_settings_node(self, path, getter=None, setter=None, ignore_error=(), mux=None, multiarg=True):
+        return self._add_info_node(path,"settings",getter=getter,setter=setter,ignore_error=ignore_error,mux=mux,multiarg=multiarg)
     def _get_info(self, kinds, nodes=None):
         """
         Get dict ``{name: value}`` containing all the device settings.

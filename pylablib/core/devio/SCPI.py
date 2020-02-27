@@ -6,6 +6,8 @@ from . import data_format
 from . import backend as backend_module  #@UnresolvedImport
 from ..utils import general as general_utils  #@UnresolvedImport
 from ..utils import log #@UnresolvedImport
+from ..utils import general #@UnresolvedImport
+from ..utils import funcargparse #@UnresolvedImport
 
 _depends_local=[".backend"]
 
@@ -39,7 +41,8 @@ class SCPIDevice(backend_module.IBackendWrapper):
     _default_operation_cooldown=0.00 # operation cooldown (see backend description)
     _default_wait_callback_timeout=.3 # callback call period during wait operations (keeps the thread from complete halting)
     _default_failsafe=False # running in the failsafe mode by default
-    _allow_concatenate_write=True # allow automatic concatenation of several write operations (see :meth:`using_write_buffer`)
+    _allow_concatenate_write=False # allow automatic concatenation of several write operations (see :meth:`using_write_buffer`)
+    _concatenate_write_separator=";\n" # separator to join different commands in concatenated write operation (with :meth:`using_write_buffer`)
     def __init__(self, conn, term_write=None, term_read=None, wait_callback=None, backend="visa", failsafe=None, timeout=None, backend_params=None):
         self._wait_sync_timeout=self._default_wait_sync_timeout
         failsafe=self._default_failsafe if failsafe is None else failsafe
@@ -68,6 +71,7 @@ class SCPIDevice(backend_module.IBackendWrapper):
         self._concatenate_write=0
         self._write_buffer=""
         self._debug_conn=False
+        self._scpi_parameters={}
     
     
     def _instr_read(self, raw=False):
@@ -81,6 +85,43 @@ class SCPIDevice(backend_module.IBackendWrapper):
             debug_msg="Writing to instr: {}".format(msg)
             log.default_log.debug(debug_msg,origin="devices/SCPI",level="misc")
         return self.instr.write(msg)
+
+    def _add_scpi_parameter(self, name, comm, kind="float", options=None, add_node=False):
+        """
+        Add a new SCPI parameter description for easier access.
+
+        Parameter defined with this method can be accessed with :meth:`_get_scpi_parameter` and :meth:`_set_scpi_parameter`.
+
+        Args:
+            name: parameter name
+            comm: SCPI access command (e.g., ``":TRIG:SOURCE"``)
+            kind: parameter kind; can be  ``"int"``, ``"float"``, ``"bool"``, or ``"enum"`` (for text/enum values)
+            options: for ``"enum"`` kind it is a dictionary ``{scpi_value: return_value}``,
+                where ``scpi_value`` is a return SCPI value text (upper case) and ``return_value`` is the value accepted/returned by the set/get method.
+            add_node: if ``True``, automatically add a settings node with the corresponding name
+        """
+        funcargparse.check_parameter_range(kind,"kind",["int","float","enum","bool"])
+        ioptions=general.invert_dict(options) if options else {}
+        self._scpi_parameters[name]=(comm,kind,options or {},ioptions)
+        if add_node:
+            self._add_settings_node(name,lambda: self._get_scpi_parameter(name),lambda v: self._set_scpi_parameter(name,v),multiarg=False)
+    def _get_scpi_parameter(self, name):
+        """Get SCPI parameter with a given name"""
+        comm,kind,options,_=self._scpi_parameters[name]
+        if kind in ["int","float","bool"]:
+            return self.ask(comm+"?",kind)
+        elif kind=="enum":
+            value=self.ask(comm+"?","string")
+            return options[value.upper()]
+    def _set_scpi_parameter(self, name, value):
+        """Set SCPI parameter with a given name"""
+        comm,kind,_,ioptions=self._scpi_parameters[name]
+        if kind in ["int","float","bool"]:
+            self.write(comm,value,kind)
+        elif kind=="enum":
+            funcargparse.check_parameter_range(value,"value",ioptions)
+            self.write("{} {}".format(comm,ioptions[value]))
+        return self._get_scpi_parameter(name)
     
     def reconnect(self, new_instrument=True):
         """
@@ -163,11 +204,11 @@ class SCPIDevice(backend_module.IBackendWrapper):
             self.sleep(self._retry_delay)
             self._try_recover(t.try_number)
     def _write_retry(self, msg="", flush=False):
-        if self._allow_concatenate_write and self._concatenate_write and not flush:
-            self._write_buffer=(self._write_buffer+"; "+msg) if self._write_buffer else msg
+        if self._allow_concatenate_write and self._concatenate_write_separator is not None and self._concatenate_write and not flush:
+            self._write_buffer=(self._write_buffer+self._concatenate_write_separator+msg) if self._write_buffer else msg
             return
         if self._write_buffer:
-            msg=self._write_buffer+"; "+msg if msg else self._write_buffer
+            msg=self._write_buffer+self._concatenate_write_separator+msg if msg else self._write_buffer
             self._write_buffer=""
         if msg:
             for t in general_utils.RetryOnException(self._retry_times,exceptions=self.instr.Error):

@@ -29,10 +29,24 @@ def _tryint(v):
         return int(v)
     except ValueError:
         return v
+def cmp_versions(ver1, ver2):
+    """
+    Compare two package versions.
+    
+    Return ``'<'`` if the first version is older (smaller), ``'>'`` if it's younger (larger) or ``'='`` if it's the same.
+    """
+    ver1=[_tryint(v.strip()) for v in ver1.split(".")]
+    ver2=[_tryint(v.strip()) for v in ver2.split(".")]
+    if ver1>ver2:
+        return ">"
+    if ver1<ver2:
+        return "<"
+    return "="
 def cmp_package_version(pkg, ver):
     """
     Compare current package version to `ver`.
     
+    `ver` should be a name of the package (rather than the module).
     Return ``'<'`` if current version is older (smaller), ``'>'`` if it's younger (larger) or ``'='`` if it's the same.
     If the package version is unavailable, return ``None``.
     """
@@ -41,13 +55,7 @@ def cmp_package_version(pkg, ver):
         return None
     if ver=="":
         return ">"
-    ver=[_tryint(v.strip()) for v in ver.split(".")]
-    cver=[_tryint(v.strip()) for v in cver.split(".")]
-    if cver>ver:
-        return ">"
-    if cver<ver:
-        return "<"
-    return "="
+    return cmp_versions(ver,cver)
             
 
 

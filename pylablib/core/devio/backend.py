@@ -8,7 +8,7 @@ from . import interface
 
 import time
 import re
-from ..utils import funcargparse, general, log, net, py3
+from ..utils import funcargparse, general, log, net, py3, module
 import contextlib
 
 _depends_local=[".interface"]
@@ -161,6 +161,17 @@ class IDeviceBackend(object):
         else:
             return self.readline()
 
+    @staticmethod
+    def list_resources(desc=False):
+        """
+        List all availabe resources for this backend.
+
+        If ``desc==False``, return list of connections (usually strings), which can be used to connect to the device.
+        Otherwise, return a list of descriptions, which have more info, but can be backend-dependent.
+
+        Might not be implemented (depending on the backend), in which case returns ``None``.
+        """
+        return None
 
 
 ### Helper functions ###
@@ -214,17 +225,13 @@ try:
         """Base class for the errors raised by the backend operations"""
         BackendOpenError=VisaBackendOpenError
         
-        if visa.__version__<"1.6": # older pyvisa versions have a slightly different interface
+        if module.cmp_versions(visa.__version__,"1.6")=="<": # older pyvisa versions have a slightly different interface
             def _set_timeout(self, timeout):
                 self.instr.timeout=timeout
             def _get_timeout(self):
                 return self.instr.timeout
             def _open_resource(self, conn):
-                if self.term_read is None:
-                    term_read=b'\n'
-                if self.term_write is None:
-                    term_write=b'\n'
-                if not term_write.endswith(term_read):
+                if not self.term_write.endswith(self.term_read):
                     raise NotImplementedError("PyVisa version <1.6 doesn't support different terminators for reading and writing")
                 instr=visa.instrument(conn)
                 instr.term_chars=self.term_read
@@ -259,6 +266,9 @@ try:
                 return self.instr.lock_context(timeout=timeout*1000. if timeout is not None else None)
             def _read_term(self):
                 return self.instr.read_termination
+            @staticmethod
+            def list_resources(desc=False):
+                return visa.ResourceManager().list_resources_info() if desc else visa.ResourceManager().list_resources()
             
         
         def __init__(self, conn, timeout=10., term_write=None, term_read=None, do_lock=None, datatype="auto"):
@@ -388,6 +398,11 @@ except ImportError:
 
 try:
     import serial
+    
+    try:
+        import serial.tools.list_ports as serial_list_ports
+    except ImportError:
+        serial_list_ports=None
 
     class SerialBackendOpenError(IBackendOpenError,serial.SerialException):
         """Serial backend opening error"""
@@ -611,7 +626,12 @@ try:
 
         def __repr__(self):
             return "SerialDeviceBackend("+self.instr.__repr__()+")"
-        
+
+        @staticmethod
+        def list_resources(desc=False):
+            if serial_list_ports is not None:
+                return [(p if desc else p[0]) for p in serial_list_ports.comports()]
+
         
     _backends["serial"]=SerialDeviceBackend
 except ImportError:
@@ -832,6 +852,10 @@ try:
 
         def __repr__(self):
             return "FT232DeviceBackend("+self.instr.__repr__()+")"
+
+        @staticmethod
+        def list_resources(desc=False):
+            return [d if desc else d[0] for d in ft232.list_devices()]
         
         
     _backends["ft232"]=FT232DeviceBackend

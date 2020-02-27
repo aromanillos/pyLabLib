@@ -211,7 +211,7 @@ class KinesisDevice(backend.IBackendWrapper):
         """
         def _is_thorlabs_id(id):
             return re.match(br"^\d{8}$",id[0]) is not None
-        ids=ft232.list_devices()
+        ids=backend.FT232DeviceBackend.list_resources(desc=True)
         if filter_ids:
             ids=[id for id in ids if _is_thorlabs_id(id)]
         return ids
