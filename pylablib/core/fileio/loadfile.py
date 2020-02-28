@@ -375,6 +375,8 @@ class BinaryTableInputFileFormatter(IInputFileFormat):
                 The defined parameters are ``'dtype'``, ``'packing'``, ``'ncols'`` (number of columns) and ``'nrows'`` (number of rows).
             skip_bytes (int): Number of bytes to skip from the beginning of the file.
         """
+        if out_type=="default":
+            out_type=_module_parameters["fileio/loadfile/csv/out_type"]
         preamble=preamble or {}
         dtype=preamble.get("dtype",dtype)
         packing=preamble.get("packing",packing)

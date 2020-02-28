@@ -25,6 +25,7 @@ def test_imports():
 
 ##### Table saving tests #####
 
+import pylablib as pll
 from pylablib.core.fileio import loadfile, savefile
 from pylablib.core.datatable.table import DataTable
 
@@ -67,6 +68,14 @@ def test_tables_saving(table_builder, tmpdir):
     savefile.save(table,save_path,"bin")
     new_table=loadfile.load(save_path,"bin",columns=columns,out_type=kind)
     compare_tables(table,new_table)
+    if kind==pll.par["fileio/loadfile/csv/out_type"]:
+        new_table=loadfile.load(save_path,"bin",columns=columns)
+        compare_tables(table,new_table)
+    if kind=="array":
+        new_table=loadfile.load(save_path,"bin",columns=2,out_type="array")
+        compare_tables(table,new_table)
+        new_table=loadfile.load(save_path,"bin",out_type="array").reshape((-1,2))
+        compare_tables(table,new_table)
 
     data=np.column_stack((np.arange(10),np.zeros(10),np.arange(10)**2+1j))
     columns=["X","Y","Z"]
@@ -74,6 +83,9 @@ def test_tables_saving(table_builder, tmpdir):
     savefile.save(table,save_path)
     new_table=loadfile.load(save_path,"csv",out_type=kind)
     compare_tables(table,new_table)
+    if kind==pll.par["fileio/loadfile/csv/out_type"]:
+        new_table=loadfile.load(save_path,"csv")
+        compare_tables(table,new_table)
 
     if kind in ["table","pandas"]:
         data=list(zip(np.arange(10),["t{}".format(i) for i in np.arange(10)]))
