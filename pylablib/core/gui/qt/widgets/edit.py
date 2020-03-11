@@ -79,6 +79,10 @@ class LVNumEdit(QtWidgets.QLineEdit):
         self._value=None
         if value is not None:
             self.set_value(value)
+        else:
+            self.set_value(0)
+            if self._value is None:
+                raise ValueError("can't assign a safe default value")
         self.textChanged.connect(self._on_change_text)
     def _on_edit_done(self):
         self.set_value(self._read_input())
@@ -119,13 +123,14 @@ class LVNumEdit(QtWidgets.QLineEdit):
         except ValueError:
             return self._value
 
-    def change_limiter(self, limiter):
+    def change_limiter(self, limiter, new_value=None):
         """Change current numerical limiter"""
         self.num_limit=limit.as_limiter(limiter)
-        if self._value is not None:
-            new_value=self._coerce_value(self._value)
-            if new_value!=self._value:
-                self.set_value(new_value)
+        if new_value is None:
+            new_value=self._value
+        new_value=self._coerce_value(new_value,coerce_on_limit=True)
+        if new_value!=self._value:
+            self.set_value(new_value)
     def set_number_limit(self, lower_limit=None, upper_limit=None, action="ignore", value_type=None):
         """
         Set number limit.
@@ -139,8 +144,7 @@ class LVNumEdit(QtWidgets.QLineEdit):
     def change_formatter(self, formatter):
         """Change current numerical formatter"""
         self.num_format=format.as_formatter(formatter)
-        if self._value is not None:
-            self.show_value()
+        self.show_value()
     def set_number_format(self, kind="float", *args, **kwargs):
         """
         Set numerical format
@@ -167,16 +171,24 @@ class LVNumEdit(QtWidgets.QLineEdit):
             new_cursor_pos=format.order_to_pos(str(self.text()),order)
             self.setCursorPosition(new_cursor_pos)
 
-    def _coerce_value(self, value):
-        while True:
+    def _coerce_value(self, value, coerce_on_limit=False):
+        for _ in range(10):
             str_value=self.num_format(value)
+            num_value=format.str_to_float(str_value)
             try:
-                new_value=self.num_limit(format.str_to_float(str_value))
+                new_value=self.num_limit(num_value)
             except limit.LimitError:
-                return value
+                if coerce_on_limit and isinstance(self.num_limit,limit.NumberLimit):
+                    if self.num_limit.range[0] is not None and num_value<self.num_limit.range[0]:
+                        new_value=self.num_limit.range[0]
+                    else:
+                        new_value=self.num_limit.range[1]
+                else:
+                    raise
             if new_value==value:
                 return new_value
             value=new_value
+        raise ValueError("couldn't coerce the new value")
     def repr_value(self, value):
         """Return representation of `value` according to the current numerical format"""
         return self.num_format(value)

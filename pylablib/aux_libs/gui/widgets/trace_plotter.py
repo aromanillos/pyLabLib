@@ -129,13 +129,14 @@ class TracePlotter(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(TracePlotter, self).__init__(parent)
 
-    def setupUi(self, name, add_end_marker=False):
+    def setupUi(self, name, add_end_marker=False, update_only_on_visible=True):
         """
         Setup the image view.
 
         Args:
             name (str): widget name
             add_end_marker (bool): if ``True``, point markers are added at the position of the last point (makes easier to track plotting progress).
+            update_only_on_visible (bool): ig ``True``, only update plot if the widget is visible.
         """
         self.name=name
         self.setObjectName(self.name)
@@ -155,6 +156,7 @@ class TracePlotter(QtWidgets.QWidget):
         self.data_src_kind=None
         self.data_src=None
         self.add_end_marker=add_end_marker
+        self.update_only_on_visible=update_only_on_visible
         self.displayed=[]
         self.vlines=[]
         self.vmarks=[]
@@ -239,7 +241,8 @@ class TracePlotter(QtWidgets.QWidget):
             self._update_plot_lines()
         return enabled
     
-    def _get_required_channels(self):
+    def get_required_channels(self):
+        """Get list of channels required for plotting: all enabled channels plus 'X axis' and  'Order by' channels """
         if self.ctl is None:
             return self.channel_indices
         xaxis=self.channel_indices[self.ctl.channels_table.v["xaxis"]]
@@ -251,7 +254,7 @@ class TracePlotter(QtWidgets.QWidget):
         
         Return dictionary ``{name: column}``.
         """
-        channels=self._get_required_channels()
+        channels=self.get_required_channels()
         maxlen=self.ctl.plot_params_table.v["disp_last"] if self.ctl else None
         return table_accum.get_data_dict(channels,maxlen=maxlen,fmt="columns")
     def get_data_from_accum_thread(self, table_accum_thread):
@@ -260,7 +263,7 @@ class TracePlotter(QtWidgets.QWidget):
         
         Return dictionary ``{name: column}``.
         """
-        channels=self._get_required_channels()
+        channels=self.get_required_channels()
         maxlen=self.ctl.plot_params_table.v["disp_last"] if self.ctl else None
         return table_accum_thread.get_data_sync(channels,maxlen=maxlen,fmt="dict")
 
@@ -310,13 +313,13 @@ class TracePlotter(QtWidgets.QWidget):
             idx_column: name of the default index column; if the "order by" column name is the same as `idx_column`, no data re-ordering is performed.
                 doesn't need to be supplied, but can improve plotting speed somewhat.
         """
-        par=self.ctl.get_all_values() if self.ctl else {"channels/xaxis":0, "channels/order_by":0}
-        if par["plotting/update_plot"]:
+        par=self.ctl.get_all_values() if self.ctl else {"channels/xaxis":0, "channels/order_by":0, "plotting/update_plot":True}
+        if par["plotting/update_plot"] and (self.isVisible() or not self.update_only_on_visible):
             if data is None:
                 data=self.get_data_from_source()
             xaxis=self.channel_indices[par["channels/xaxis"]]
             order_by=self.channel_indices[par["channels/order_by"]]
-            data_channels=[xaxis,order_by]+self.displayed
+            data_channels=[xaxis,order_by]+self.get_enabled_channels()
             norm_data=[]
             for idx in data_channels:
                 col=np.asarray(data[idx])

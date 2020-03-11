@@ -713,7 +713,7 @@ class NIDAQ(IDevice):
 
         Return tuple ``(rate, sync_with_ai, samps_per_chan, continuous)``.
         """
-        if self.ao_task.timing.samp_timing_type==nidaqmx.constants.SampleTimingType.ON_DEMAND:
+        if (not self.ao_channels) or self.ao_task.timing.samp_timing_type==nidaqmx.constants.SampleTimingType.ON_DEMAND:
             return (0,False,1000,True)
         sync_with_ai=self.ao_task.timing.samp_clk_src.endswith("ai/SampleClock")
         rate=self.ao_task.timing.samp_clk_rate

@@ -158,7 +158,7 @@ class Dictionary(object):
         elif Dictionary._is_branch(source):
             return source
         else:
-            raise ValueError("{0} isn't a tree".format(source))
+            raise ValueError("source isn't a tree")
     @staticmethod
     def _is_empty(source):
         if isinstance(source, Dictionary):

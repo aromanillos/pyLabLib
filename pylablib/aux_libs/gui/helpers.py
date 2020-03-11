@@ -562,7 +562,10 @@ class TableAccumulatorThread(controller.QTaskThread):
         self.logger=None
         self.streaming=False
 
-    
+    def preprocess_data(self, data):
+        """Preprocess data before adding it to the table (to be overloaded)"""
+        return data
+
     def _on_source_reset(self, src, tag, value):
         with self.data_lock:
             self.table_accum.reset_data()
@@ -571,6 +574,7 @@ class TableAccumulatorThread(controller.QTaskThread):
 
     def _accum_data(self, src, tag, value):
         with self.data_lock:
+            value=self.preprocess_data(value)
             added_len=self.table_accum.add_data(value)
         if self.logger and self.streaming:
             new_data=self.table_accum.get_data_rows(maxlen=added_len)

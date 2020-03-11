@@ -85,6 +85,8 @@ class ParamTable(QtWidgets.QWidget):
     value_changed=QtCore.pyqtSignal("PyQt_PyObject","PyQt_PyObject")
 
     def _normalize_location(self, location, default=(None,0,1,1)):
+        if not isinstance(location,(list,tuple)):
+            location=(location,)
         location+=(None,)*(4-len(location))
         location=[d if l is None else l for (l,d) in zip(location,default)]
         row,col,rowspan,colspan=location
@@ -328,6 +330,9 @@ class ParamTable(QtWidgets.QWidget):
         """Add a padding (expandable spacer) with the given proportion"""
         self.add_spacer(0)
         self.formLayout.setRowStretch(self.formLayout.rowCount(),prop)
+    def insert_row(self, row):
+        """Insert a new table row at the given location"""
+        utils.insert_layout_row(self.formLayout,row)
 
     def lock(self, names=None, locked=True):
         """Lock (disable) or unlock (enable) widgets with the given names (by default, all widgets)"""

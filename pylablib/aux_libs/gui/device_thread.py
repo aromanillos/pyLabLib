@@ -178,6 +178,7 @@ class RemoteDeviceThread(DeviceThread):
     def __init__(self, name=None, devargs=None, devkwargs=None, signal_pool=None):
         DeviceThread.__init__(self,name=name,signal_pool=signal_pool,devargs=devargs,devkwargs=devkwargs)
         self.rpyc=False
+        self.rpyc_serv=None
 
     def rpyc_device(self, remote, module, device, *args, **kwargs):
         """
