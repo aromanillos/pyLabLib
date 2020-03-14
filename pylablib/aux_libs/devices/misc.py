@@ -38,7 +38,7 @@ def get_os_lib_folder():
 default_placing_message="The libraries should be placed in {} or in {}".format(default_lib_folder,get_os_lib_folder())
 default_source_message="in the pyLabLib GitHub repository (located in 'pylablib\\{}' folder)".format(default_rel_lib_folder)
 
-def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, error_message=None):
+def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, error_message=None, outer_loop="location"):
     """
     Load DLL.
 
@@ -50,39 +50,44 @@ def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, erro
         locally(bool): if ``True``, change local path to allow loading of dependent DLLs
         call_conv(str): DLL call convention; can be either ``"cdecl"`` (corresponds to ``ctypes.cdll``) or ``"stdcall"`` (corresponds to ``ctypes.windll``)
         error_message(str): error message to add in addition to the default error message shown when the DLL is not found
+        outer_loop(str): determines which alternative (name or location) is looped over in the outer loop;
+            can be either ``"location"`` (loop over locations, and for each location loop over names), or ``"name"``  (loop over names, and for each name loop over locations)
     """
     if platform.system()!="Windows":
         raise OSError("DLLs are not available on non-Windows platform")
     if not isinstance(name,(list,tuple)):
         name=[name]
-    for loc in locations:
-        for n in name:
-            if loc=="local":
-                folder=default_lib_folder
-            elif loc=="global":
-                folder=""
+    if outer_loop=="location":
+        check_order=[(loc,n) for loc in locations for n in name]
+    else:
+        check_order=[(loc,n) for n in name for loc in locations]
+    for loc,n in check_order:
+        if loc=="local":
+            folder=default_lib_folder
+        elif loc=="global":
+            folder=""
+        else:
+            if loc.lower().endswith(".dll"):
+                folder,n=os.path.split(loc)
             else:
-                if loc.lower().endswith(".dll"):
-                    folder,n=os.path.split(loc)
-                else:
-                    folder=loc
-            path=os.path.join(folder,n)
+                folder=loc
+        path=os.path.join(folder,n)
+        if locally:
+            loc_folder,loc_name=os.path.split(path)
+            old_env_path=os.environ["PATH"]
+            env_paths=old_env_path.split(";")
+            if not any([files.paths_equal(loc_folder,ep) for ep in env_paths if ep]):
+                os.environ["PATH"]=files.normalize_path(loc_folder)+";"+os.environ["PATH"]+";"+files.normalize_path(loc_folder)+";"
+            path=loc_name
+        try:
+            if call_conv=="cdecl":
+                return ctypes.cdll.LoadLibrary(path)
+            elif call_conv=="stdcall":
+                return ctypes.windll.LoadLibrary(path)
+            else:
+                raise ValueError("unrecognized call convention: {}".format(call_conv))
+        except OSError:
             if locally:
-                loc_folder,loc_name=os.path.split(path)
-                old_env_path=os.environ["PATH"]
-                env_paths=old_env_path.split(";")
-                if not any([files.paths_equal(loc_folder,ep) for ep in env_paths if ep]):
-                    os.environ["PATH"]=files.normalize_path(loc_folder)+";"+os.environ["PATH"]
-                path=loc_name
-            try:
-                if call_conv=="cdecl":
-                    return ctypes.cdll.LoadLibrary(path)
-                elif call_conv=="stdcall":
-                    return ctypes.windll.LoadLibrary(path)
-                else:
-                    raise ValueError("unrecognized call convention: {}".format(call_conv))
-            except OSError:
-                if locally:
-                    os.environ["PATH"]=old_env_path
+                os.environ["PATH"]=old_env_path
     error_message="\n"+error_message if error_message else ""
-    raise OSError("can't import module {}".format(" or".join(name))+error_message)
+    raise OSError("can't import module {}".format(" or ".join(name))+error_message)

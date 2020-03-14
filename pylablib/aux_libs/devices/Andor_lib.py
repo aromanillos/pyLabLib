@@ -374,7 +374,7 @@ class AndorLib(object):
 		else:
 			solis_path=r"C:\Program Files\Andor SOLIS"
 		error_message="The library is supplied with Andor Solis software, or {};\n{}".format(default_source_message,default_placing_message)
-		self.lib=load_lib(("atmcd.dll","atmcd{}d_legacy.dll".format(arch[:2])),
+		self.lib=load_lib(("atmcd.dll","atmcd{}d.dll".format(arch[:2]),"atmcd{}d_legacy.dll".format(arch[:2])),
 			locations=(solis_path,"local","global"),call_conv="stdcall",error_message=error_message)
 		lib=self.lib
 
@@ -394,6 +394,7 @@ class AndorLib(object):
 		self.GetControllerCardModel=wrapper(lib.GetControllerCardModel, [ctypes.c_char_p], [None], rvprep=[strprep], rvref=[False])
 		self.GetHeadModel=wrapper(lib.GetHeadModel, [ctypes.c_char_p], [None], rvprep=[strprep], rvref=[False])
 		self.GetCameraSerialNumber=wrapper(lib.GetCameraSerialNumber, [ctypes.c_int32], [None])
+		self.GetPixelSize=wrapper(lib.GetPixelSize, [ctypes.c_float,ctypes.c_float], [None,None])
 		self.SetFanMode=wrapper(lib.SetFanMode, [ctypes.c_int32], ["mode"])
 
 		self.InAuxPort=wrapper(lib.InAuxPort, [ctypes.c_int32,ctypes.c_int32], ["port",None])

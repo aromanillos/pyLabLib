@@ -53,6 +53,7 @@ class AndorCamera(IDevice):
         self._add_full_info_node("model_data",self.get_model_data)
         self._add_full_info_node("capabilities",self.get_capabilities)
         self._add_full_info_node("amp_modes",self.get_all_amp_modes,ignore_error=AndorLibError)
+        self._add_full_info_node("pixel_size",self.get_pixel_size)
         self._add_settings_node("temperature",self.get_temperature_setpoint,self.set_temperature)
         self._add_status_node("temperature_monitor",self.get_temperature,ignore_error=AndorLibError)
         self._add_status_node("temperature_status",self.get_temperature_status,ignore_error=AndorLibError)
@@ -225,6 +226,10 @@ class AndorCamera(IDevice):
         """
         self._camsel()
         return lib.GetCapabilities()
+    def get_pixel_size(self):
+        """Get camera pixel size (in m)"""
+        self._camsel()
+        return (s*1E-6 for s in lib.GetPixelSize())
 
     ### Cooler controls ###
     def is_cooler_on(self):
