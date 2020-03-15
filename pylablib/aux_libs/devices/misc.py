@@ -15,7 +15,7 @@ def get_default_lib_folder(absolute=True):
     """
     arch=platform.architecture()[0]
     if arch=="32bit":
-        archfolder="x86"
+        archfolder="x32"
     elif arch=="64bit":
         archfolder="x64"
     else:
@@ -38,7 +38,7 @@ def get_os_lib_folder():
 default_placing_message="The libraries should be placed in {} or in {}".format(default_lib_folder,get_os_lib_folder())
 default_source_message="in the pyLabLib GitHub repository (located in 'pylablib\\{}' folder)".format(default_rel_lib_folder)
 
-def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, error_message=None, outer_loop="location"):
+def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, error_message=None, check_order="location"):
     """
     Load DLL.
 
@@ -50,16 +50,18 @@ def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, erro
         locally(bool): if ``True``, change local path to allow loading of dependent DLLs
         call_conv(str): DLL call convention; can be either ``"cdecl"`` (corresponds to ``ctypes.cdll``) or ``"stdcall"`` (corresponds to ``ctypes.windll``)
         error_message(str): error message to add in addition to the default error message shown when the DLL is not found
-        outer_loop(str): determines which alternative (name or location) is looped over in the outer loop;
-            can be either ``"location"`` (loop over locations, and for each location loop over names), or ``"name"``  (loop over names, and for each name loop over locations)
+        check_order(str): determines the order in which possible combinations of names and locations are looped over;
+            can be ``"location"`` (loop over locations, and for each location loop over names), ``"name"``  (loop over names, and for each name loop over locations),
+            or a list of tuples ``[(loc,name)]`` specifying order of checking
+            (in the latter case, `name` and `location` arguments are ignored, except for generating error mesage).
     """
     if platform.system()!="Windows":
         raise OSError("DLLs are not available on non-Windows platform")
     if not isinstance(name,(list,tuple)):
         name=[name]
-    if outer_loop=="location":
+    if check_order=="location":
         check_order=[(loc,n) for loc in locations for n in name]
-    else:
+    elif check_order=="name":
         check_order=[(loc,n) for n in name for loc in locations]
     for loc,n in check_order:
         if loc=="local":

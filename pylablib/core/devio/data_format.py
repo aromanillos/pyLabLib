@@ -139,7 +139,7 @@ class DataFormat(object):
         """Convert the string data into an array."""
         if self.is_ascii():
             if isinstance(data,py3.bytestring):
-                data=[e.strip() for e in re.split(rb"\s*,\s*|\s+",data)]
+                data=[e.strip() for e in re.split(br"\s*,\s*|\s+",data)]
             else:
                 data=[e.strip() for e in re.split(r"\s*,\s*|\s+",data)]
             return np.array([float(e) for e in data if e])

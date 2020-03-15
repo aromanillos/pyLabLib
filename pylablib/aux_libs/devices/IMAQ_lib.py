@@ -61,7 +61,8 @@ class IMAQLib(object):
         if self._initialized:
             return
         error_message="The library is automatically supplied with National Instruments NI-IMAQ software"
-        self.lib=load_lib("imaq.dll",error_message=error_message)
+        self.lib=load_lib("imaq.dll",error_message=error_message,call_conv="stdcall")
+        self.clib=load_lib("imaq.dll",error_message=error_message,call_conv="cdecl")
         lib=self.lib
 
         wrapper=ctypes_wrap.CTypesWrapper(restype=IMAQError, return_res=False, errcheck=errcheck(lib=self))
@@ -108,7 +109,7 @@ class IMAQLib(object):
 
         self.imgGetAttribute_lib=wrapper.wrap(lib.imgGetAttribute, [IMAQSessionID,ctypes.c_uint32,ctypes.c_void_p], ["sid","attr",None], 
             rvprep=[lambda *args:args[-1]], addargs=["value"])
-        self.imgSetAttribute2_lib=lib.imgSetAttribute2
+        self.imgSetAttribute2_lib=self.clib.imgSetAttribute2
         self.imgSetAttribute2_lib.restype=IMAQError
         self.imgSetAttribute2_lib.errcheck=errcheck(lib=self)
         self.imgGetCameraAttributeNumeric=wrapper.wrap(lib.imgGetCameraAttributeNumeric, [IMAQSessionID,ctypes.c_char_p,ctypes.c_double], ["sid","attr",None])

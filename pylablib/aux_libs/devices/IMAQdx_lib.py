@@ -223,7 +223,8 @@ class IMAQdxLib(object):
         if self._initialized:
             return
         error_message="The library is automatically supplied with National Instruments NI-IMAQdx software"
-        self.lib=load_lib("niimaqdx.dll",error_message=error_message)
+        self.lib=load_lib("niimaqdx.dll",error_message=error_message,call_conv="stdcall")
+        self.clib=load_lib("niimaqdx.dll",error_message=error_message,call_conv="cdecl")
         lib=self.lib
 
         wrapper=ctypes_wrap.CTypesWrapper(restype=IMAQdxError, return_res=False, errcheck=errcheck(lib=self))
@@ -254,8 +255,8 @@ class IMAQdxLib(object):
             ["sid","attr_ptr","cnt_ptr","root","visibility"])
         self.IMAQdxGetAttribute=wrapper(lib.IMAQdxGetAttribute, [IMAQdxSession,ctypes.c_char_p,IMAQdxAttributeType,ctypes.c_voidp],
             ["sid","name","attr_type",None],rvprep=[attr_prep],rvconv=[attr_conv])
-        lib.IMAQdxSetAttribute.restype=IMAQdxError
-        lib.IMAQdxSetAttribute.errcheck=errcheck(lib=self)
+        self.clib.IMAQdxSetAttribute.restype=IMAQdxError
+        self.clib.IMAQdxSetAttribute.errcheck=errcheck(lib=self)
         self.IMAQdxGetAttributeType=wrapper(lib.IMAQdxGetAttributeType, [IMAQdxSession,ctypes.c_char_p,IMAQdxAttributeType], ["sid","name",None])
         self.IMAQdxGetAttributeMinimum=wrapper(lib.IMAQdxGetAttributeMinimum,[IMAQdxSession,ctypes.c_char_p,IMAQdxAttributeType,ctypes.c_voidp],
             ["sid","name","attr_type",None],rvprep=[attr_prep],rvconv=[attr_conv])
@@ -307,7 +308,7 @@ class IMAQdxLib(object):
     def IMAQdxSetAttribute(self, sid, name, value, value_type):
         val,value_type=self._to_attr_value(value,value_type)
         name=py3.as_builtin_bytes(name)
-        self.lib.IMAQdxSetAttribute(sid,name,ctypes.c_uint32(value_type),val)
+        self.clib.IMAQdxSetAttribute(sid,name,ctypes.c_uint32(value_type),val)
     def IMAQdxEnumerateAttributeValues(self, sid, name):
         cnt=ctypes.c_uint32()
         self.IMAQdxEnumerateAttributeValues_lib(sid,name,None,ctypes.byref(cnt))

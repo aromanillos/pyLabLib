@@ -26,9 +26,9 @@ class WS(IDevice):
         error_message="The library is supplied with the designated HighFinesse wavemeter software, or {};\n{}".format(default_source_message,default_placing_message)
         if lib_path in [6,7,None]:
             lib_path=("wlmData6.dll" if lib_path==6 else "wlmData7.dll"), "wlmData.dll"
-            self.dll=load_lib(lib_path,locations=("local","global"),error_message=error_message)
+            self.dll=load_lib(lib_path,locations=("local","global"),call_conv="stdcall",error_message=error_message)
         else:
-            self.dll=load_lib(lib_path,error_message=error_message)
+            self.dll=load_lib(lib_path,call_conv="stdcall",error_message=error_message)
         
         self.dll.Instantiate.restype=ctypes.c_long
         self.dll.Instantiate.argtypes=[ctypes.c_long,ctypes.c_long,ctypes.c_long,ctypes.c_long]

@@ -67,7 +67,7 @@ class ShamrockLib(object):
 		shamrock_path=os.path.join(solis_path,r"Drivers\Shamrock")
 		error_message="The library is supplied with Andor Solis software, or {};\n{}".format(default_source_message,default_placing_message)
 		self.lib=load_lib(("atspectrograph.dll","shamrockcif{}.dll".format("" if arch[:2]=="32" else arch[:2])),
-			locations=(solis_path,shamrock_path,"local","global"),call_conv="stdcall",locally=True,error_message=error_message,outer_loop="name")
+			locations=(solis_path,shamrock_path,"local","global"),call_conv="stdcall",locally=True,error_message=error_message,check_order="name")
 		lib=self.lib
 
 		self.Shamrock_errorcodes=Shamrock_errorcodes

@@ -24,9 +24,9 @@ class SCU3D(IDevice):
         IDevice.__init__(self)
         error_message="The library is supplied {};\n{}".format(default_source_message,default_placing_message)
         if lib_path is None:
-            self.dll=load_lib("SCU3DControl.dll",locations=("local","global"),error_message=error_message)
+            self.dll=load_lib("SCU3DControl.dll",locations=("local","global"),call_conv="cdecl",error_message=error_message)
         else:
-            self.dll=load_lib(lib_path,error_message=error_message)
+            self.dll=load_lib(lib_path,call_conv="cdecl",error_message=error_message)
         self.dll.SA_MoveStep_S.argtypes=[ctypes.c_uint,ctypes.c_uint,ctypes.c_int,ctypes.c_uint,ctypes.c_uint]
         self.dll.SA_GetStatus_S.argtypes=[ctypes.c_uint,ctypes.c_uint,ctypes.POINTER(ctypes.c_uint)]
         self.idx=idx
