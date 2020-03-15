@@ -29,13 +29,11 @@ class ShamrockSpectrograph(IDevice):
     Shaprock spectrograph.
 
     Args:
-        idx(int): camera index (starting from 0; use :func:`get_cameras_number` to get the total number of connected cameras)
-        ini_path(str): path to detector.ini file, if required by the spectrogaph
+        idx(int): spectrograph index (starting from 0; use :func:`get_spectrographs_number` to get the total number of connected spectrogaphs)
     """
-    def __init__(self, idx=0, ini_path=""):
+    def __init__(self, idx=0):
         IDevice.__init__(self)
         self.idx=idx
-        self.ini_path=ini_path
         self._opened=False
         self.open()
         

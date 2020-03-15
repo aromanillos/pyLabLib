@@ -73,6 +73,7 @@ LaserQuantum Finesse laser             Laser                             :mod:`L
 Agilent HP8168F                        Laser                             :mod:`AgilentLasers <pylablib.aux_libs.devices.AgilentLasers>`
 Nuphoton NP2000                        EDFA                              :mod:`NuPhoton <pylablib.aux_libs.devices.NuPhoton>`
 HighFinesse WS/6 and WS/7              Wavemeter                         :mod:`HighFinesse <pylablib.aux_libs.devices.HighFinesse>`
+Andor Shamrock                         Spectrometer                      :mod:`Andor <pylablib.aux_libs.devices.AndorShamrock>`                                       Tested with Andor SR-303i
 Andor SDK2 interface                   Camera                            :mod:`Andor <pylablib.aux_libs.devices.Andor>`                                       Tested with Andor IXON and Luca
 Andor SDK3 interface                   Camera                            :mod:`Andor <pylablib.aux_libs.devices.Andor>`                                       Tested with Andor Zyla
 Hamamatsu DCAM interface               Camera                            :mod:`DCAM <pylablib.aux_libs.devices.DCAM>`                                         Tested with ORCA-Flash 4.0 (C11440-22CU)
@@ -85,7 +86,7 @@ Thorlabs PM100D                        Optical power meter               :mod:`T
 OZ Optics TF100                        Tunable optical filter            :mod:`OZOptics <pylablib.aux_libs.devices.OZOptics>`
 OZ Optics DD100                        Variable optical attenuator       :mod:`OZOptics <pylablib.aux_libs.devices.OZOptics>`
 OZ Optics EPC04                        Polarization controller           :mod:`OZOptics <pylablib.aux_libs.devices.OZOptics>`
-Agilent AWG33220A                      Arbitrary wave generator          :mod:`AgilentElectronics <pylablib.aux_libs.devices.AgilentElectronics>`
+Agilent AWG33220A                      Arbitrary waveform generator      :mod:`AgilentElectronics <pylablib.aux_libs.devices.AgilentElectronics>`
 Agilent N9310A                         Microwave generator               :mod:`AgilentElectronics <pylablib.aux_libs.devices.AgilentElectronics>`
 Vaunix LMS (Lab Brick)                 Microwave generator               :mod:`Vaunix <pylablib.aux_libs.devices.Vaunix>`
 Thorlabs MDT693/4A                     High voltage source               :mod:`Thorlabs <pylablib.aux_libs.devices.Thorlabs>`

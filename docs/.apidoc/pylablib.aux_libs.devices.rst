@@ -44,6 +44,22 @@ pylablib.aux\_libs.devices.AndorSDK3\_lib module
     :undoc-members:
     :show-inheritance:
 
+pylablib.aux\_libs.devices.AndorShamrock module
+-----------------------------------------------
+
+.. automodule:: pylablib.aux_libs.devices.AndorShamrock
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pylablib.aux\_libs.devices.AndorShamrock\_lib module
+----------------------------------------------------
+
+.. automodule:: pylablib.aux_libs.devices.AndorShamrock_lib
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pylablib.aux\_libs.devices.Andor\_lib module
 --------------------------------------------
 

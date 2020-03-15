@@ -8,6 +8,31 @@ This is a list of changes between each version.
 
 
 -----
+0.4.1
+-----
+
+**Interface changes**
+
+- Slightly changed representations of complex number in to-string conversions depending on the conversion rules (``"python"`` vs ``"text"``).
+
+**Additions**
+
+- Devices
+
+    * Added Thorlabs K10CR1 rotational stage
+    * Added Andor Shamrock spectrographs
+    * Expanded Agilent AWG class
+    * Added more 32bit dlls
+    * Added ``list_resources`` method to every backend class, which lists available connections for this backend (not available for every backend; so far only works in :class:`.VisaDeviceBackend`, :class:`.SerialDeviceBackend`, and :class:`.FT232BackendOpenError`.
+
+- GUI and threading
+
+    * Added :meth:`.TableAccumulatorThread.preprocess_data` method to pre-process incoming data before adding it to the table
+    * Added ``update_only_on_visible`` argument to :meth:`.TracePlotter.setupUi` method, and :meth:`.TracePlotter.get_required_channels` method.
+
+
+
+-----
 0.4.0
 -----
 

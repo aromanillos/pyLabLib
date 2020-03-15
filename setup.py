@@ -16,7 +16,7 @@ with open(path.join(here, 'README.rst')) as f:
 
 setup(
     name='pylablib',
-    version='0.4.0',
+    version='0.4.1',
     description='Collection of Python code for using in lab environment (data acquisition, device communication, data analysis)',
     long_description=long_description,
     long_description_content_type="text/x-rst",
