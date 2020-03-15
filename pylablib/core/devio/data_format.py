@@ -6,6 +6,8 @@ Library for binary data encoding/decoding for device communication.
 import numpy as np
 import re
 
+from ..utils import py3
+
 class DataFormat(object):
     """
     Describes data encoding for device communications.
@@ -136,7 +138,11 @@ class DataFormat(object):
     def convert_from_str(self, data):
         """Convert the string data into an array."""
         if self.is_ascii():
-            return np.array([float(e.strip()) for e in re.split(r"\s*,\s*|\s+",data) if e!=""])
+            if isinstance(data,py3.bytestring):
+                data=[e.strip() for e in re.split(rb"\s*,\s*|\s+",data)]
+            else:
+                data=[e.strip() for e in re.split(r"\s*,\s*|\s+",data)]
+            return np.array([float(e) for e in data if e])
         else:
             return np.fromstring(data,dtype=self.to_desc("numpy"))
     def convert_to_str(self, data, ascii_format=".5f"):

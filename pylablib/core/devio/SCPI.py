@@ -30,7 +30,7 @@ class SCPIDevice(backend_module.IBackendWrapper):
             If ``None``, use the class value `_default_failsafe` (``False`` by default).
         timeout (float): Default timeout (in seconds).
     """
-    # All of the foolowing _default_* parameters can be redefined in subclasses
+    # All of the following _default_* parameters can be redefined in subclasses
     # Most of these parameters are used to define object attributes, which can be altered individually for different objects (i.e., connections)
     _default_failsafe_operation_timeout=5. # timeout for an operaton (read/write/ask) in the failsafe mode
     _default_backend_timeout=3. # timeout for a single backend operation attempt in the failsafe mode (one operation can be attempted several times)
@@ -38,7 +38,7 @@ class SCPIDevice(backend_module.IBackendWrapper):
     _default_retry_times=5 # maximal number of operation attempts
     _default_operation_timeout=3. # timeout for an operator in the standard (non-failsafe) mode
     _default_wait_sync_timeout=600. # timeout for "sync" wait operation (waiting for the device operation to complete); an operation can be long (e.g., a single frequency sweep), thus the long timeout
-    _default_operation_cooldown=0.00 # operation cooldown (see backend description)
+    _default_operation_cooldown=0.02 # operation cooldown (see backend description)
     _default_wait_callback_timeout=.3 # callback call period during wait operations (keeps the thread from complete halting)
     _default_failsafe=False # running in the failsafe mode by default
     _allow_concatenate_write=False # allow automatic concatenation of several write operations (see :meth:`using_write_buffer`)
@@ -72,6 +72,7 @@ class SCPIDevice(backend_module.IBackendWrapper):
         self._write_buffer=""
         self._debug_conn=False
         self._scpi_parameters={}
+        self._command_validity_cache={}
     
     
     def _instr_read(self, raw=False):
@@ -244,8 +245,29 @@ class SCPIDevice(backend_module.IBackendWrapper):
         return self.ask(self._id_comm,timeout=timeout)
     _reset_comm="*RST"
     def reset(self):
-        """Reset the device"""
+        """Reset the device (by default, ``"*RST"`` command)"""
         return self.write(self._reset_comm)
+    _esr_comm="*ESR?"
+    def get_esr(self, timeout=None):
+        """Get the device status register (by default, ``"*ESR?"`` command)"""
+        return self.ask(self._esr_comm,"int")
+    def _is_command_valid(self, comm, cached=True):
+        """
+        Check if the command or the query is valid.
+
+        Send the command, ignore the output, and then check the status bit 5 (command parsing error).
+        If ``cached==True``, only check the validity once, and then just use this value in all further attempts.
+        """
+        if (not cached) or (comm not in self._command_validity_cache):
+            self.write(comm)
+            self.flush()
+            result=not bool(self.get_esr()&0x20)
+            if cached:
+                self._command_validity_cache[comm]=result
+        else:
+            result=self._command_validity_cache[comm]
+        return result
+
     
     _wait_sync_comm="*OPC?"
     def wait_sync(self, timeout=None, wait_callback=None):
@@ -413,24 +435,29 @@ class SCPIDevice(backend_module.IBackendWrapper):
         Parse the data returned by the device. `fmt` is :class:`.DataFormat` description.
         
         The data is assumed to be in a (somewhat) standard SCPI format:
-        ``'#'``, then a single digit ``s`` denoting length of the size block,
+        ``b'#'``, then a single digit ``s`` denoting length of the size block,
         then ``s`` digits denoting length of the data (in bytes) followed by the actual data.
         """
-        if data[:1]!="#": # range access to accommodate for bytes type in Py3
-            raise ValueError("malformed data")
-        len_size=int(data[1:2]) # range access to accommodate for bytes type in Py3
-        length=int(data[2:2+len_size])
-        data=data[2+len_size:]
-        if len(data)!=length:
-            if len(data)>length and data[length:]=='\n'*(len(data)-length):
+        fmt=data_format.DataFormat.from_desc(fmt)
+        if data[:1]!=b"#": # range access to accommodate for bytes type in Py3
+            if not fmt.is_ascii():
+                raise ValueError("malformed data")
+            length=None
+        else:
+            len_size=int(data[1:2]) # range access to accommodate for bytes type in Py3
+            length=int(data[2:2+len_size])
+            data=data[2+len_size:]
+        if length is not None and len(data)!=length:
+            if len(data)>length and data[length:]==b"\n"*(len(data)-length):
                 data=data[:length]
             else:
-                if len(data)>length:
-                    trailing_bytes="; the trailing bytes are {0}".format(".".join([str(ord(c)) for c in data[length:]]))
+                if len(data)>length+20:
+                    trailing_bytes="; first 20 trailing bytes are {}".format(data[length:length+20])
+                elif len(data)>length:
+                    trailing_bytes="; trailing bytes are {}".format(data[length:])
                 else:
                     trailing_bytes=""
                 raise ValueError("data length {0} doesn't agree with the declared length {1}".format(len(data),length)+trailing_bytes)
-        fmt=data_format.DataFormat.from_desc(fmt)
         return fmt.convert_from_str(data)
     
     def apply_settings(self, settings):

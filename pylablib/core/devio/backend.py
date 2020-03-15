@@ -245,7 +245,7 @@ try:
             def _lock_context(self, timeout=None):
                 raise NotImplementedError("PyVisa version <1.6 doesn't support locking")
             def _read_term(self):
-                return self.instr.term_chars
+                return py3.as_builtin_bytes(self.instr.term_chars)
         else:
             def _set_timeout(self, timeout):
                 self.instr.timeout=timeout*1000. # in newer versions timeout is in ms
@@ -265,7 +265,7 @@ try:
             def _lock_context(self, timeout=None):
                 return self.instr.lock_context(timeout=timeout*1000. if timeout is not None else None)
             def _read_term(self):
-                return self.instr.read_termination
+                return py3.as_builtin_bytes(self.instr.read_termination)
             @staticmethod
             def list_resources(desc=False):
                 return visa.ResourceManager().list_resources_info() if desc else visa.ResourceManager().list_resources()
