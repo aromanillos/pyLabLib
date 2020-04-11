@@ -103,11 +103,12 @@ class IDeviceBackend(object):
         """Context manager for usage of a different timeout inside a block."""
         if timeout is not None:
             to=self.get_timeout()
-            self.set_timeout(timeout)
+            if to!=timeout:
+                self.set_timeout(timeout)
         try:
             yield
         finally:
-            if timeout is not None:
+            if timeout is not None and to!=timeout:
                 self.set_timeout(to)
     
             

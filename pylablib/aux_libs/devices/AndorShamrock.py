@@ -20,13 +20,13 @@ class ShamrockNotSupportedError(ShamrockError):
     "Option not supported."
 
 def get_spectrographs_number():
-    """Get number of connected Andor cameras"""
+    """Get number of connected Andor spectrographs"""
     with lib.using_handle():
         return lib.ShamrockGetNumberDevices()
 
 class ShamrockSpectrograph(IDevice):
     """
-    Shaprock spectrograph.
+    Shamrock spectrograph.
 
     Args:
         idx(int): spectrograph index (starting from 0; use :func:`get_spectrographs_number` to get the total number of connected spectrogaphs)

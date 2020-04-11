@@ -124,6 +124,14 @@ pylablib.aux\_libs.devices.DCAM\_lib\_const module
     :undoc-members:
     :show-inheritance:
 
+pylablib.aux\_libs.devices.GenericAWGs module
+---------------------------------------------
+
+.. automodule:: pylablib.aux_libs.devices.GenericAWGs
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pylablib.aux\_libs.devices.HighFinesse module
 ---------------------------------------------
 

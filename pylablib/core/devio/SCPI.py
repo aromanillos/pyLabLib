@@ -87,7 +87,7 @@ class SCPIDevice(backend_module.IBackendWrapper):
             log.default_log.debug(debug_msg,origin="devices/SCPI",level="misc")
         return self.instr.write(msg)
 
-    def _add_scpi_parameter(self, name, comm, kind="float", options=None, add_node=False):
+    def _add_scpi_parameter(self, name, comm, kind="float", options=None, match_option="prefix", set_delay=0, add_node=False):
         """
         Add a new SCPI parameter description for easier access.
 
@@ -99,29 +99,40 @@ class SCPIDevice(backend_module.IBackendWrapper):
             kind: parameter kind; can be  ``"int"``, ``"float"``, ``"bool"``, or ``"enum"`` (for text/enum values)
             options: for ``"enum"`` kind it is a dictionary ``{scpi_value: return_value}``,
                 where ``scpi_value`` is a return SCPI value text (upper case) and ``return_value`` is the value accepted/returned by the set/get method.
+            match_option: desciribes how options are matched; can be ``"prefix"`` (match option if it's prefix of the result), or ``"exact"`` (match if result is an exact match)
+            set_delay: delay between setting and getting commands on parameter setting
             add_node: if ``True``, automatically add a settings node with the corresponding name
         """
         funcargparse.check_parameter_range(kind,"kind",["int","float","enum","bool"])
+        funcargparse.check_parameter_range(match_option,"match_option",["prefix","exact"])
         ioptions=general.invert_dict(options) if options else {}
-        self._scpi_parameters[name]=(comm,kind,options or {},ioptions)
+        self._scpi_parameters[name]=(comm,kind,options or {},ioptions,match_option,set_delay)
         if add_node:
             self._add_settings_node(name,lambda: self._get_scpi_parameter(name),lambda v: self._set_scpi_parameter(name,v),multiarg=False)
     def _get_scpi_parameter(self, name):
         """Get SCPI parameter with a given name"""
-        comm,kind,options,_=self._scpi_parameters[name]
+        comm,kind,options,_,match_option,_=self._scpi_parameters[name]
         if kind in ["int","float","bool"]:
             return self.ask(comm+"?",kind)
         elif kind=="enum":
-            value=self.ask(comm+"?","string")
-            return options[value.upper()]
+            value=self.ask(comm+"?","string").upper()
+            if match_option=="exact":
+                return options[value.upper()]
+            else:
+                for k,v in options.items():
+                    if value.startswith(k):
+                        return v
+                raise KeyError("can't find option matching value {}".format(k))
     def _set_scpi_parameter(self, name, value):
         """Set SCPI parameter with a given name"""
-        comm,kind,_,ioptions=self._scpi_parameters[name]
+        comm,kind,_,ioptions,_,set_delay=self._scpi_parameters[name]
         if kind in ["int","float","bool"]:
             self.write(comm,value,kind)
         elif kind=="enum":
             funcargparse.check_parameter_range(value,"value",ioptions)
             self.write("{} {}".format(comm,ioptions[value]))
+        if set_delay>0:
+            self.sleep(set_delay)
         return self._get_scpi_parameter(name)
     
     def reconnect(self, new_instrument=True):
@@ -375,10 +386,11 @@ class SCPIDevice(backend_module.IBackendWrapper):
                 raise ValueError("empty response")
         elif data_type=="bool":
             msg=msg.lower()
-            if msg=="off" or int(msg)==0:
-                return False
-            else:
-                return True
+            msg=msg.split()[-1]
+            try:
+                return bool(int(msg))
+            except ValueError:
+                return msg!="off"
         else:
             raise ValueError("unrecognized data_type: {0}".format(data_type))
     def read(self, data_type="string", timeout=None):

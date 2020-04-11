@@ -19,8 +19,8 @@ This is a list of changes between each version.
 
 - Devices
 
-    * Added Thorlabs K10CR1 rotational stage
-    * Added Andor Shamrock spectrographs
+    * Added Thorlabs K10CR1 rotational stage (:class:`.devices.Thorlabs.K10CR1`)
+    * Added Andor Shamrock spectrographs (:mod:`.devices.AndorShamrock`)
     * Expanded Agilent AWG class
     * Added more 32bit dlls
     * Added ``list_resources`` method to every backend class, which lists available connections for this backend (not available for every backend; so far only works in :class:`.VisaDeviceBackend`, :class:`.SerialDeviceBackend`, and :class:`.FT232BackendOpenError`.
