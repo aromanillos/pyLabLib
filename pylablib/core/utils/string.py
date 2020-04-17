@@ -98,6 +98,21 @@ def find_first_entry(line, elements, start=0, not_found_value=-1):
         return not_found_value
     return first_entry
 
+def find_all_locations(line, elements, start=0, not_found_value=-1, known_locations=None):
+    """
+    Find the indices of the earliest position inside the `line` of all of the strings in `elements`, starting from `start`.
+    
+    Return dict ``{element: pos}``, where ``pos`` is either position in the string, or `not_found_value` if no entries are present.
+    `known_locations` can specify a dictionary of already known locations of some of the elements.
+    In this case, only missing elements or elements located before `start` will be re-evaluated.
+    """
+    positions=dict(known_locations) if known_locations is not None else {}
+    for e in elements:
+        if e not in positions or positions[e]<start:
+            pos=line.find(e,start)
+            positions[e]=pos if pos>0 else not_found_value
+    return positions
+
 
 ##### String filter #####
 
@@ -234,6 +249,8 @@ def escape_string(value, location="element", quote_type='"'):
         for c in _hard_delimiters:
             if value.find(c)>=0:
                 process=True
+        if _is_convertible(value):
+            process=True
     if location=="entry":
         for c in _soft_delimiters:
             if value.find(c)>=0:
@@ -297,7 +314,7 @@ def to_string(value, location="element", custom_representations=None, parenthesi
         return "["+", ".join(to_string(e,location="element",**kwargs) for e in value)+"]"
     if isinstance(value, tuple):
         val="("+", ".join(to_string(e,location="element",**kwargs) for e in value)+")"
-        return val if parenthesis_rules=="text" else val[:-1]+",)"
+        return val if parenthesis_rules=="text" or len(value)!=1 else val[:-1]+",)"
     if isinstance(value, set):
         return "{"+", ".join(to_string(e,location="element",**kwargs) for e in value)+"}"
     if isinstance(value, dict):
@@ -416,11 +433,14 @@ def _parse_parenthesis_struct(line, start=0, use_classes=True):
     open_par=line[start]
     elts=[]
     curr_elt=None
+    elements_locations={}
+    all_elements=list(_quotation_characters)+[',',':']+list(_parenthesis_pairs.keys())+list(_parenthesis_pairs.values())
     while True:
-        quote_pos=find_first_entry(line,_quotation_characters,pos,len(line))
-        delim_pos=find_first_entry(line,[',',':'],pos,len(line))
-        open_par_pos=find_first_entry(line,_parenthesis_pairs,pos,len(line))
-        clos_par_pos=find_first_entry(line,_parenthesis_pairs.values(),pos,len(line))
+        elements_locations=find_all_locations(line,all_elements,start=pos,not_found_value=len(line),known_locations=elements_locations)
+        quote_pos=min([elements_locations[c] for c in _quotation_characters])
+        delim_pos=min([elements_locations[c] for c in [',',':']])
+        open_par_pos=min([elements_locations[c] for c in _parenthesis_pairs.keys()])
+        clos_par_pos=min([elements_locations[c] for c in _parenthesis_pairs.values()])
         if clos_par_pos==len(line):
             raise ValueError("malformatted parenthesis structure")
         min_pos=min(quote_pos,delim_pos,open_par_pos,clos_par_pos)
@@ -510,6 +530,8 @@ def _convert_parenthesis_struct(struct, case_sensitive=True, parenthesis_rules="
         elif parenthesis_rules=="python":
             if (len(elt_val)>0) and (elt_val[-1][:2]==("e","")):
                 elt_val=elt_val[:-1]
+            if len(elt_val)==1 and (elt_val[-1][:2]==("e","")): # parsing (,) into an empty tuple
+                elt_val=elt_val[:-1]
             for e in elt_val:
                 if e[:2]==("e",""):
                     raise ValueError("malformatted parenthesis structure")
@@ -587,7 +609,7 @@ def from_string(value, case_sensitive=True, parenthesis_rules="text", use_classe
         return float(value)
     except ValueError:
         pass
-    if _complex_re.match(value):
+    if _complex_re.match(value) and not (parenthesis_rules=="text" and value[0]=="("):
         try:
             return complex(value)
         except ValueError:
@@ -613,6 +635,29 @@ def from_string(value, case_sensitive=True, parenthesis_rules="text", use_classe
                 if isinstance(parsed,tuple):
                     return from_str(*parsed)
     return value
+_like_number_re=re.compile(r"^[\d+-eij.]*$")
+def _is_convertible(value):
+    """Check if the string can be converted into a non-string value"""
+    value=value.strip()
+    if len(value)==0:
+        return True
+    value=value.lower()
+    if value in ["true","false","none"]:
+        return True
+    if value[0] in _parenthesis_pairs or value[0] in _quotation_characters or (value[0]=="b" and len(value)>1 and value[1] in _quotation_characters):
+        return True
+    if _like_number_re.match(value):
+        cvalue=value.replace("i","j")
+        for cls in [int,float,complex]:
+            try:
+                cls(cvalue)
+                return True
+            except ValueError:
+                pass
+    for cc in _conversion_classes:
+        if value.startswith(cc[0]+"("):
+            return True
+    return False
 
 
 _delimiters=r"\s*,\s*|\s+"

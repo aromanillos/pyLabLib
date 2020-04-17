@@ -54,9 +54,14 @@ def test_string():
     assert string.to_string(np.arange(3),use_classes=True)=="array([0, 1, 2])"
     assert string.from_string("[1,2,3+4j,(3+4j),[5,6,(7,8)],{'a':9,'b':10}]")==[1,2,3+4j,(3+4j,),[5,6,(7,8)],{'a':9,'b':10}]
     assert string.from_string("[1,2,(3+4j),(3+4j,),[5,6,(7,8)],{'a':9,'b':10}]",parenthesis_rules="python")==[1,2,3+4j,(3+4j,),[5,6,(7,8)],{'a':9,'b':10}]
-    varlst=[1, 2, 3, "abc", "[ 3, 4, '5']", "[6, 7]", (), (1,2, [3,4]), {"x":5, "y":10, "z":[15, (20,30)]},
+    varlst=[1, 2, 3, 123, "\n", " ", "\t", r"\n", r"\t", "123", "abc",
+        "[ 3, 4, '5']", "[6, 7, \"8\"]", (), "()", "(,)", (1,2, [3,4]), {"x":5, "y":10, "z":[15, (20,30)]},
         None, True, False, 3.5, 1+2j, "", "1+2j", "(1+2j)", ("1+2j",), (1,), (1j,), (1+2j,), (("1+2j",),)]
-    assert string.from_string(string.to_string(varlst))==varlst
+    for pr in ["text","python"]:
+        assert string.from_string(string.to_string(varlst,parenthesis_rules=pr),parenthesis_rules=pr)==varlst
+        for loc in ["element","parameter","entry"]:
+            for v in varlst:
+                assert string.from_string(string.to_string(v,location=loc,parenthesis_rules=pr),parenthesis_rules=pr)==v
     nplst=[np.arange(3), [0,1,2]]
     assert string.from_string(string.to_string(nplst,use_classes=False))==[nplst[1],nplst[1]]
     assert isinstance(string.from_string(string.to_string(nplst,use_classes=True))[0],np.ndarray)
@@ -66,4 +71,5 @@ def test_string():
     assert string.from_string("(1, 2, '3')")==(1,2,"3")
     assert string.from_string("(1,2,3+4j,(3+4j),[5,6,(7,8)],{'a':9,'b':10})")==(1,2,3+4j,(3+4j,),[5,6,(7,8)],{'a':9,'b':10})
     assert string.from_string("(1,2,(3+4j),(3+4j,),[5,6,(7,8)],{'a':9,'b':10})",parenthesis_rules="python")==(1,2,3+4j,(3+4j,),[5,6,(7,8)],{'a':9,'b':10})
-    assert string.from_string(string.to_string(tuple(varlst)))==tuple(varlst)
+    for pr in ["text","python"]:
+        assert string.from_string(string.to_string(tuple(varlst),parenthesis_rules=pr),parenthesis_rules=pr)==tuple(varlst)
