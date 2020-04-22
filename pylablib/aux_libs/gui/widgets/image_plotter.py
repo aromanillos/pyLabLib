@@ -12,7 +12,8 @@ from ....core.gui.qt.thread import controller
 from ....core.utils import funcargparse
 from ....core.dataproc import filters
 
-from PyQt5 import QtWidgets, QtCore
+from ....core.gui.qt import QtCore, QtWidgets
+
 import pyqtgraph
 import numpy as np
 import contextlib
@@ -187,8 +188,6 @@ class ImageView(QtWidgets.QWidget):
         self.hLayout.addWidget(self.plotWindow)
         self.hLayout.setStretch(1,1)
         self.plotWindow.setVisible(False)
-        self._signals_connected=False
-        self._connect_signals()
         self.imgVLine.sigPositionChanged.connect(self.update_image_controls)
         self.imgHLine.sigPositionChanged.connect(self.update_image_controls)
         self.imageWindow.getHistogramWidget().sigLevelsChanged.connect(self.update_image_controls)
@@ -226,30 +225,13 @@ class ImageView(QtWidgets.QWidget):
         a list specifying PyQtGraph colormap or a :class:`pyqtgraph.ColorMap` instance.
         """
         cmap=builtin_cmaps.get(cmap,cmap)
-        if isinstance(cmap,(list,tuple)):
+        if isinstance(cmap,tuple):
+            if any([isinstance(v,float) for c in cmap[1] for v in c]):
+                cols=[tuple([int(v*255) for v in c]) for c in cmap[1]]
+                cmap=cmap[0],cols
             cmap=pyqtgraph.ColorMap(*cmap)
         self.imageWindow.setColorMap(cmap)
     
-    def _connect_signals(self):
-        if not self._signals_connected:
-            self.imgVLine.sigPositionChanged.connect(self.update_image_controls)
-            self.imgHLine.sigPositionChanged.connect(self.update_image_controls)
-            self.imageWindow.getHistogramWidget().sigLevelsChanged.connect(self.update_image_controls)
-            self._signals_connected=True
-    def _disconnect_signals(self):
-        if self._signals_connected:
-            self.imgVLine.sigPositionChanged.disconnect(self.update_image_controls)
-            self.imgHLine.sigPositionChanged.disconnect(self.update_image_controls)
-            self.imageWindow.getHistogramWidget().sigLevelsChanged.disconnect(self.update_image_controls)
-            self._signals_connected=False
-    @contextlib.contextmanager
-    def _no_events(self):
-        self._disconnect_signals()
-        try:
-            yield
-        finally:
-            self._connect_signals()
-
 
     def set_binning(self, xbin=1, ybin=1, mode="mean", update_image=True):
         """
@@ -386,82 +368,81 @@ class ImageView(QtWidgets.QWidget):
         If ``do_redraw==True``, force update regardless of the ``"update_image"`` button state; otherwise, update only if it is enabled.
         If ``only_new_image==True`` and the image hasn't changed since the last call to ``update_image``, skip redraw (however, if ``do_redraw==True``, force redrawing regardless).
         """
-        with self._no_events():
-            params=self._get_params()
-            if not do_redraw:
-                if not (params.v["update_image"] or self.single_acquired):
-                    return params
-                if only_new_image and not self.single_acquired:
-                    return params
-                self.single_acquired=False
-            draw_img=self.img
-            if self.xbin>1:
-                draw_img=filters.decimate(draw_img,self.xbin,dec_mode=self.dec_mode,axis=0)
-            if self.ybin>1:
-                draw_img=filters.decimate(draw_img,self.ybin,dec_mode=self.dec_mode,axis=1)
-            if params.v["transpose"]:
-                draw_img=draw_img.transpose()
-            if params.v["flip_x"]:
-                draw_img=draw_img[::-1,:]
-            if params.v["flip_y"]:
-                draw_img=draw_img[:,::-1]
-            img_shape=draw_img.shape
-            if np.prod(img_shape)<=1: # ImageView can't plot images with less than 1 px
-                draw_img=np.zeros((2,2),dtype=np.asarray(draw_img).dtype)+(draw_img[0,0] if np.prod(draw_img.shape) else 0)
-            autoscale=params.v["normalize"]
-            draw_img=self._sanitize_img(draw_img)
-            if self.isVisible():
-                self.imageWindow.setImage(draw_img,autoLevels=autoscale,autoHistogramRange=autoscale)
-            if update_controls:
-                self.update_image_controls()
-            if not autoscale:
-                levels=params.v["minlim"],params.v["maxlim"]
-                self.imageWindow.setLevels(*levels)
-                self.imageWindow.getHistogramWidget().setLevels(*levels)
-                self.imageWindow.getHistogramWidget().autoHistogramRange()
-            params.i["minlim"]=self.imageWindow.levelMin
-            params.i["maxlim"]=self.imageWindow.levelMax
-            params.v["size"]="{} x {}".format(*img_shape)
-            show_lines=params.v["show_lines"]
-            for ln in [self.imgVLine,self.imgHLine]:
-                ln.setPen("g" if show_lines else None)
-                ln.setHoverPen("y" if show_lines else None)
-                ln.setMovable(show_lines)
-            for ln in [self.imgVLine]+self.imgVBLines:
-                ln.setBounds([0,draw_img.shape[0]])
-            for ln in [self.imgHLine]+self.imgHBLines:
-                ln.setBounds([0,draw_img.shape[1]])
-            self.imgVLine.setPos(params.v["vlinepos"])
-            self.imgHLine.setPos(params.v["hlinepos"])
-            self._update_linecut_boundaries(params)
-            if params.v["show_lines"] and params.v["show_linecuts"]:
-                cut_width=params.v["linecut_width"]
-                vpos=params.v["vlinepos"]
-                vmin=int(min(max(0,vpos-cut_width/2),draw_img.shape[0]-1))
-                vmax=int(vpos+cut_width/2)
-                if vmax==vmin:
-                    if vmin==0:
-                        vmax+=1
-                    else:
-                        vmin-=1
-                hpos=params.v["hlinepos"]
-                hmin=int(min(max(0,hpos-cut_width/2),draw_img.shape[1]-1))
-                hmax=int(hpos+cut_width/2)
-                if hmax==hmin:
-                    if hmin==0:
-                        hmax+=1
-                    else:
-                        hmin-=1
-                x_cut=draw_img[:,hmin:hmax].mean(axis=1)
-                y_cut=draw_img[vmin:vmax,:].mean(axis=0)
-                autorange=self.plotWindow.getViewBox().autoRangeEnabled()
-                self.plotWindow.disableAutoRange()
-                self.cut_lines[0].setData(np.arange(len(x_cut)),x_cut)
-                self.cut_lines[1].setData(np.arange(len(y_cut)),y_cut)
-                if any(autorange):
-                    self.plotWindow.enableAutoRange(x=autorange[0],y=autorange[1])
-                self.plotWindow.setVisible(True)
-            else:
-                self.plotWindow.setVisible(False)
-            self.update_rectangles()
-            return params
+        params=self._get_params()
+        if not do_redraw:
+            if not (params.v["update_image"] or self.single_acquired):
+                return params
+            if only_new_image and not self.single_acquired:
+                return params
+            self.single_acquired=False
+        draw_img=self.img
+        if self.xbin>1:
+            draw_img=filters.decimate(draw_img,self.xbin,dec_mode=self.dec_mode,axis=0)
+        if self.ybin>1:
+            draw_img=filters.decimate(draw_img,self.ybin,dec_mode=self.dec_mode,axis=1)
+        if params.v["transpose"]:
+            draw_img=draw_img.transpose()
+        if params.v["flip_x"]:
+            draw_img=draw_img[::-1,:]
+        if params.v["flip_y"]:
+            draw_img=draw_img[:,::-1]
+        img_shape=draw_img.shape
+        if np.prod(img_shape)<=1: # ImageView can't plot images with less than 1 px
+            draw_img=np.zeros((2,2),dtype=np.asarray(draw_img).dtype)+(draw_img[0,0] if np.prod(draw_img.shape) else 0)
+        autoscale=params.v["normalize"]
+        draw_img=self._sanitize_img(draw_img)
+        if self.isVisible():
+            self.imageWindow.setImage(draw_img,autoLevels=autoscale,autoHistogramRange=autoscale)
+        if update_controls:
+            self.update_image_controls()
+        if not autoscale:
+            levels=params.v["minlim"],params.v["maxlim"]
+            self.imageWindow.setLevels(*levels)
+            self.imageWindow.getHistogramWidget().setLevels(*levels)
+            self.imageWindow.getHistogramWidget().autoHistogramRange()
+        params.i["minlim"]=self.imageWindow.levelMin or 0
+        params.i["maxlim"]=self.imageWindow.levelMax or 0
+        params.v["size"]="{} x {}".format(*img_shape)
+        show_lines=params.v["show_lines"]
+        for ln in [self.imgVLine,self.imgHLine]:
+            ln.setPen("g" if show_lines else None)
+            ln.setHoverPen("y" if show_lines else None)
+            ln.setMovable(show_lines)
+        for ln in [self.imgVLine]+self.imgVBLines:
+            ln.setBounds([0,draw_img.shape[0]])
+        for ln in [self.imgHLine]+self.imgHBLines:
+            ln.setBounds([0,draw_img.shape[1]])
+        self.imgVLine.setPos(params.v["vlinepos"])
+        self.imgHLine.setPos(params.v["hlinepos"])
+        self._update_linecut_boundaries(params)
+        if params.v["show_lines"] and params.v["show_linecuts"]:
+            cut_width=params.v["linecut_width"]
+            vpos=params.v["vlinepos"]
+            vmin=int(min(max(0,vpos-cut_width/2),draw_img.shape[0]-1))
+            vmax=int(vpos+cut_width/2)
+            if vmax==vmin:
+                if vmin==0:
+                    vmax+=1
+                else:
+                    vmin-=1
+            hpos=params.v["hlinepos"]
+            hmin=int(min(max(0,hpos-cut_width/2),draw_img.shape[1]-1))
+            hmax=int(hpos+cut_width/2)
+            if hmax==hmin:
+                if hmin==0:
+                    hmax+=1
+                else:
+                    hmin-=1
+            x_cut=draw_img[:,hmin:hmax].mean(axis=1)
+            y_cut=draw_img[vmin:vmax,:].mean(axis=0)
+            autorange=self.plotWindow.getViewBox().autoRangeEnabled()
+            self.plotWindow.disableAutoRange()
+            self.cut_lines[0].setData(np.arange(len(x_cut)),x_cut)
+            self.cut_lines[1].setData(np.arange(len(y_cut)),y_cut)
+            if any(autorange):
+                self.plotWindow.enableAutoRange(x=autorange[0],y=autorange[1])
+            self.plotWindow.setVisible(True)
+        else:
+            self.plotWindow.setVisible(False)
+        self.update_rectangles()
+        return params

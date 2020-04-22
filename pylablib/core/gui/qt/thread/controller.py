@@ -2,7 +2,7 @@ from __future__ import print_function # Python 2 compatibility
 from ....utils import general, funcargparse, dictionary, functions as func_utils
 from . import signal_pool as spool, threadprop, synchronizing, callsync
 
-from PyQt5 import QtCore
+from .. import QtCore, Signal, Slot
 
 import threading
 import contextlib
@@ -54,20 +54,20 @@ def exint(error_msg_template="{}:"):
 def exsafe(func):
     """Decorator that intercepts exceptions raised by `func` and stops the execution in a controlled manner (quitting the main thread)"""
     error_msg_template="{{}} executing function '{}':".format(func.__name__)
-    @func_utils.getargsfrom(func,hide_outer_obj=True) # PyQt slots don't work well with bound methods
+    @func_utils.getargsfrom(func,hide_outer_obj=True) # Qt slots don't work well with bound methods
     def safe_func(*args, **kwargs):
         with exint(error_msg_template=error_msg_template):
             return func(*args,**kwargs)
     return safe_func
 def exsafeSlot(*slargs, **slkwargs):
-    """Wrapper around ``PyQt5.QtCore.pyqtSlot`` which intercepts exceptions and stops the execution in a controlled manner"""
+    """Wrapper around PyQt5/PySide2 slot which intercepts exceptions and stops the execution in a controlled manner"""
     def wrapper(func):
-        return QtCore.pyqtSlot(*slargs,**slkwargs)(exsafe(func))
+        return Slot(*slargs,**slkwargs)(exsafe(func))
     return wrapper
 
 class QThreadControllerThread(QtCore.QThread):
-    finalized=QtCore.pyqtSignal()
-    _stop_request=QtCore.pyqtSignal()
+    finalized=Signal()
+    _stop_request=Signal()
     def __init__(self, controller):
         QtCore.QThread.__init__(self)
         self.moveToThread(self)
@@ -82,7 +82,7 @@ class QThreadControllerThread(QtCore.QThread):
             finally:
                 self.finalized.emit()
                 self.exec_() # finalizing event loop (exitted after finalizing event is processed)
-    @QtCore.pyqtSlot()
+    @Slot()
     def _do_quit(self):
         if self.isRunning() and not self._stop_requested:
             self.controller.request_stop() # signal controller to stop
@@ -91,6 +91,27 @@ class QThreadControllerThread(QtCore.QThread):
     def quit_sync(self):
         self._stop_request.emit()
 
+def thread_slot(*args):
+    """Wrapper which generates a "slot caller" class, which can then be used to reliably call slots in a specific thread"""
+    class QSlotReceiver(QtCore.QObject):
+        """
+        Class for connecting to signals, where slots have to be executed in a specific thread.
+
+        Exists only to work around a certain PySide bug (PYSIDE-249) where thread affinity of slots gets lost in subclasses.
+
+        Args:
+            func: method to be executed (original slot)
+            thread: thread in which the method has to be executed.
+        """
+        def __init__(self, func, thread):
+            QtCore.QObject.__init__(self)
+            self.moveToThread(thread)
+            self.func=func
+        @exsafeSlot(*args)
+        def slot(self, *fargs):
+            """Slot used for connecting to signals"""
+            self.func(*fargs)
+    return QSlotReceiver
 
 def remote_call(func):
     """Decorator that turns a controller method into a remote call (call from a different thread is passed synchronously)"""
@@ -161,11 +182,11 @@ class QThreadController(QtCore.QObject):
                 raise threadprop.ThreadError("GUI thread controller can only be created in the main thread")
             if threadprop.current_controller(require_controller=False):
                 raise threadprop.DuplicateControllerThreadError()
-            self.thread=threadprop.get_gui_thread()
+            self._thread=threadprop.get_gui_thread()
             threadprop.local_data.controller=self
             _register_controller(self)
         else:
-            self.thread=QThreadControllerThread(self)
+            self._thread=QThreadControllerThread(self)
 
         # set up message processing
         self._wait_timer=QtCore.QBasicTimer()
@@ -190,22 +211,26 @@ class QThreadController(QtCore.QObject):
         self._lifetime_state_lock=threading.Lock()
         self._lifetime_state="stopped"
         # set up signals
-        self.moveToThread(self.thread)
-        self._messaged.connect(self._get_message,QtCore.Qt.QueuedConnection)
-        self._interrupt_called.connect(self._on_call_in_thread,QtCore.Qt.QueuedConnection)
+        self.moveToThread(self._thread)
+        self._get_message_caller=thread_slot(object)(self._get_message,self._thread)
+        self._messaged.connect(self._get_message_caller.slot,QtCore.Qt.QueuedConnection)
+        self._on_call_in_thread_caller=thread_slot(object)(self._on_call_in_thread,self._thread)
+        self._interrupt_called.connect(self._on_call_in_thread_caller.slot,QtCore.Qt.QueuedConnection)
+        self._on_start_event_caller=thread_slot()(self._on_start_event,self._thread)
+        self._on_finish_event_caller=thread_slot()(self._on_finish_event,self._thread)
         if self.kind=="main":
-            threadprop.get_app().aboutToQuit.connect(self._on_finish_event,type=QtCore.Qt.DirectConnection)
+            threadprop.get_app().aboutToQuit.connect(self._on_finish_event_caller.slot,type=QtCore.Qt.DirectConnection)
             threadprop.get_app().lastWindowClosed.connect(self._on_last_window_closed,type=QtCore.Qt.DirectConnection)
-            self._recv_started_event.connect(self._on_start_event,type=QtCore.Qt.QueuedConnection) # invoke delayed start event (call in the main loop)
+            self._recv_started_event.connect(self._on_start_event_caller.slot,type=QtCore.Qt.QueuedConnection) # invoke delayed start event (call in the main loop)
             self._recv_started_event.emit()
             self._lifetime_state="setup"
         else:
-            self.thread.started.connect(self._on_start_event,type=QtCore.Qt.QueuedConnection)
-            self.thread.finalized.connect(self._on_finish_event,type=QtCore.Qt.QueuedConnection)
+            self._thread.started.connect(self._on_start_event_caller.slot,type=QtCore.Qt.QueuedConnection)
+            self._thread.finalized.connect(self._on_finish_event_caller.slot,type=QtCore.Qt.QueuedConnection)
     
     ### Special signals processing ###
-    _messaged=QtCore.pyqtSignal("PyQt_PyObject")
-    @exsafeSlot("PyQt_PyObject")
+    _messaged=Signal(object)
+    # @exsafeSlot(object)
     def _get_message(self, msg): # message signal processing
         kind,tag,priority,value=msg
         if kind=="msg":
@@ -226,15 +251,13 @@ class QThreadController(QtCore.QObject):
             with self._lifetime_state_lock:
                 if self._lifetime_state!="finishing":
                     self._stop_requested=True
-    _interrupt_called=QtCore.pyqtSignal("PyQt_PyObject")
-    @exsafeSlot("PyQt_PyObject")
+    _interrupt_called=Signal(object)
     def _on_call_in_thread(self, call): # call signal processing
         call()
 
     ### Execution starting / finishing ###
-    _recv_started_event=QtCore.pyqtSignal()
-    started=QtCore.pyqtSignal()
-    @exsafeSlot()
+    _recv_started_event=Signal()
+    started=Signal()
     def _on_start_event(self):
         self._stop_requested=False
         with self._lifetime_state_lock:
@@ -253,13 +276,12 @@ class QThreadController(QtCore.QObject):
             self.notify_exec("run")
             if self.kind=="run":
                 self._do_run()
-                self.thread.quit_sync()
+                self._thread.quit_sync()
         except threadprop.InterruptExceptionStop:
-            self.thread.quit_sync()
+            self._thread.quit_sync()
         finally:
             self.poke()  # add a message into the event loop, so that it executed and detects that the thread.quit was called
-    finished=QtCore.pyqtSignal()
-    @exsafeSlot()
+    finished=Signal()
     def _on_finish_event(self):
         with self._lifetime_state_lock:
             self._lifetime_state="finishing"
@@ -281,11 +303,11 @@ class QThreadController(QtCore.QObject):
                 self._signal_pool.unsubscribe(uid)
             self.notify_exec("stop")
             _unregister_controller(self)
-            self.thread.quit() # stop event loop (no regular messages processed after this call)
+            self._thread.quit() # stop event loop (no regular messages processed after this call)
             self.poke()  # add a message into the event loop, so that it executed and detects that the thread.quit was called
             with self._lifetime_state_lock:
                 self._lifetime_state="stopped"
-    @QtCore.pyqtSlot()
+    @Slot()
     def _on_last_window_closed(self):
         if threadprop.get_app().quitOnLastWindowClosed():
             self.request_stop()
@@ -596,7 +618,7 @@ class QThreadController(QtCore.QObject):
     ### Thread execution control ###
     def start(self):
         """Start the thread."""
-        self.thread.start()
+        self._thread.start()
     def request_stop(self):
         """Request thread stop (send a stop command)."""
         self._messaged.emit(("stop",None,0,None))
@@ -613,7 +635,7 @@ class QThreadController(QtCore.QObject):
                 self.request_stop()
             self.call_in_thread_callback(exit_main)
         else:
-            self.thread.quit_sync()
+            self._thread.quit_sync()
         if self.is_in_controlled():
             raise threadprop.InterruptExceptionStop
     def poke(self):
@@ -630,7 +652,7 @@ class QThreadController(QtCore.QObject):
 
     def is_controlled(self):
         """Check if this controller corresponds to the current thread."""
-        return QtCore.QThread.currentThread() is self.thread
+        return QtCore.QThread.currentThread() is self._thread
 
 
     ### Notifier access ###
@@ -997,7 +1019,8 @@ class QTaskThread(QMultiRepeatingThreadController):
         QMultiRepeatingThreadController.__init__(self,name=name,signal_pool=signal_pool)
         self.setupargs=setupargs or []
         self.setupkwargs=setupkwargs or {}
-        self._directed_signal.connect(self._on_directed_signal,QtCore.Qt.QueuedConnection)
+        self._on_directed_signal_caller=thread_slot(object)(self._on_directed_signal,self._thread)
+        self._directed_signal.connect(self._on_directed_signal_caller.slot,QtCore.Qt.QueuedConnection)
         self._commands={}
         self._sched_order=[]
         self._signal_schedulers={}
@@ -1071,8 +1094,7 @@ class QTaskThread(QMultiRepeatingThreadController):
         for name in self._commands:
             self._commands[name][1].clear()
 
-    _directed_signal=QtCore.pyqtSignal("PyQt_PyObject")
-    @exsafeSlot("PyQt_PyObject")
+    _directed_signal=Signal(object)
     def _on_directed_signal(self, msg):
         self.process_signal(*msg)
     def _recv_directed_signal(self, tag, src, value):
@@ -1333,7 +1355,7 @@ def stop_controller(name, code=0, sync=True, require_controller=False):
         controller.stop(code=code)
         if sync:
             controller.sync_exec("stop")
-            controller.thread.wait()
+            controller._thread.wait()
         return controller
     except threadprop.NoControllerThreadError:
         if require_controller:
@@ -1360,7 +1382,7 @@ def stop_all_controllers(sync=True, concurrent=True, stop_self=True):
         for ctl in ctls:
             if ctl:
                 ctl.sync_exec("stop")
-                ctl.thread.wait()
+                ctl._thread.wait()
     else:
         for n in names:
             if (n!=current_ctl):

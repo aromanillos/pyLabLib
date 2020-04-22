@@ -14,7 +14,7 @@ from ....core.utils import funcargparse, dictionary
 from ....core.dataproc import waveforms
 from ..helpers import TableAccumulator, TableAccumulatorThread
 
-from PyQt5 import QtWidgets, QtCore
+from ....core.gui.qt import QtCore, QtWidgets, Signal
 import pyqtgraph
 import numpy as np
 
@@ -196,7 +196,7 @@ class TracePlotter(QtWidgets.QWidget):
 
 
 
-    on_reset=QtCore.pyqtSignal()
+    on_reset=Signal()
     @controller.exsafeSlot()
     def reset_history(self):
         """

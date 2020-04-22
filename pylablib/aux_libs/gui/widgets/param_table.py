@@ -3,7 +3,7 @@ from ....core.gui.qt.thread import threadprop, controller
 from ....core.gui.qt import values as values_module, utils
 from ....core.utils import py3, dictionary
 
-from PyQt5 import QtCore, QtWidgets
+from ....core.gui.qt import QtCore, QtWidgets, Signal
 
 import collections
 
@@ -82,7 +82,7 @@ class ParamTable(QtWidgets.QWidget):
             self.display_table_root=display_table_root if display_table_root is not None else self.name
         self.gui_thread_safe=gui_thread_safe
 
-    value_changed=QtCore.pyqtSignal("PyQt_PyObject","PyQt_PyObject")
+    value_changed=Signal(object,object)
 
     def _normalize_location(self, location, default=(None,0,1,1)):
         if not isinstance(location,(list,tuple)):

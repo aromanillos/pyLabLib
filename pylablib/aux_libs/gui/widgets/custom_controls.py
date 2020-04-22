@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets
+from ....core.gui.qt import QtCore, QtWidgets, Signal
 
 from ....core.gui.qt.widgets.edit import LVNumEdit
 from ....core.utils.numerical import limit_to_range
@@ -160,7 +160,7 @@ class BinROICtl(QtWidgets.QWidget):
             v.set_number_limit(1,self.maxbin,"coerce","int")
         self._show_values(*self.get_value())
 
-    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    value_changed=Signal(object)
     def _on_edit(self):
         params=self.get_value()
         self._show_values(*params)
@@ -333,7 +333,7 @@ class RangeCtl(QtWidgets.QWidget):
         self.lim=lim
         self.set_value(self.rng)
 
-    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    value_changed=Signal(object)
     def get_value(self):
         """Get current range value (2-tuple ``(left, right)``)"""
         return self.rng

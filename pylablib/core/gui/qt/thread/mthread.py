@@ -1,7 +1,7 @@
 from ....mthread import threadprop, controller, sync_primitives
 from ....utils import funcargparse
 
-from PyQt5 import QtCore, QtWidgets
+from .. import QtCore, QtWidgets, Signal
 
 import threading
 import sys
@@ -34,7 +34,7 @@ class CallerObject(QtCore.QObject):
     """
     Auxiliary object for making remote calls in the GUI thread.
     """
-    call_signal=QtCore.pyqtSignal("PyQt_PyObject")
+    call_signal=Signal(object)
     def __init__(self):
         QtCore.QObject.__init__(self)
         self.call_signal.connect(self.on_call)

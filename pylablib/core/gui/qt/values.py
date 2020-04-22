@@ -3,7 +3,7 @@ Uniform representation of values from different widgets: numerical and text edit
 """
 
 from .widgets import edit
-from PyQt5 import QtCore, QtWidgets
+from . import QtCore, QtWidgets, Signal
 from ...utils import dictionary, py3, string
 from ...utils.functions import FunctionSignature
 from .thread import controller
@@ -102,7 +102,7 @@ class IValueHandler(object):
         return str(value)
     def value_changed_signal(self):
         """
-        Get the pyQt signal emitted when the value is changed.
+        Get the Qt signal emitted when the value is changed.
         """
         if hasattr(self.widget,"value_changed"):
             return self.widget.value_changed
@@ -121,7 +121,7 @@ class VirtualValueHandler(IValueHandler):
         IValueHandler.__init__(self,None)
         self.complex_value=complex_value
         self.value=dictionary.Dictionary(value) if complex_value else value
-        self.value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    value_changed=Signal(object)
     def get_value(self, name=None):
         if name is None:
             return self.value
@@ -222,7 +222,7 @@ class IDefaultValueHandler(IValueHandler):
 
 class ISingleValueHandler(IValueHandler):
     """
-    Base class for single-value widget handler, typically used for built-in pyQt widgets.
+    Base class for single-value widget handler, typically used for built-in Qt widgets.
 
     Defines new functions ``get/set_single_value`` which don't take a name argument; raises an error if the name is supplied to any of the standard functions. 
 

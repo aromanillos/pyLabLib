@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets, QtCore
+from .. import QtCore, QtWidgets, Signal
 from ... import format, limit
 
 class LVTextEdit(QtWidgets.QLineEdit):
@@ -31,9 +31,9 @@ class LVTextEdit(QtWidgets.QLineEdit):
         else:
             QtWidgets.QLineEdit.keyPressEvent(self,event)
 
-    value_entered=QtCore.pyqtSignal("PyQt_PyObject")
+    value_entered=Signal(object)
     """Signal emitted when value is entered (regardless of whether it stayed the same)"""
-    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    value_changed=Signal(object)
     """Signal emitted when value is changed"""
     def get_value(self):
         """Get current numerical value"""
@@ -193,9 +193,9 @@ class LVNumEdit(QtWidgets.QLineEdit):
         """Return representation of `value` according to the current numerical format"""
         return self.num_format(value)
 
-    value_entered=QtCore.pyqtSignal("PyQt_PyObject")
+    value_entered=Signal(object)
     """Signal emitted when value is entered (regardless of whether it stayed the same)"""
-    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    value_changed=Signal(object)
     """Signal emitted when value is changed"""
     def get_value(self):
         """Get current numerical value"""

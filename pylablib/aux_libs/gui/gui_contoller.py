@@ -1,7 +1,7 @@
-from ...core.gui.qt.thread import controller, threadprop
+from ...core.gui.qt.thread import controller
 from ...core.gui.qt import values as values_module
 
-from PyQt5 import QtCore
+from ...core.gui.qt import QtCore
 
 import collections
 

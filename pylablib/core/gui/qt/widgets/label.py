@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets
+from .. import QtWidgets
 from ... import format,limit
 
 class LVNumLabel(QtWidgets.QLabel):
@@ -8,7 +8,7 @@ class LVNumLabel(QtWidgets.QLabel):
     Supports different number representations and metric perfixes.
     """
     def __init__(self, parent, value=None, num_limit=None, num_format=None, allow_text=True):
-        QtWidgets.QLineEdit.__init__(self, parent)
+        QtWidgets.QLabel.__init__(self, parent)
         self.num_limit=limit.as_limiter(num_limit) if num_limit is not None else limit.NumberLimit()
         self.num_format=format.as_formatter(num_format) if num_format is not None else format.FloatFormatter()
         self._value=None

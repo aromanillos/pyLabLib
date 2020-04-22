@@ -1,7 +1,7 @@
 from ...core.gui.qt.thread import controller, signal_pool
 from ...core.utils import general, functions
 
-from PyQt5 import QtCore
+from ...core.gui.qt import QtCore, Signal, Slot
 
 import collections
 import traceback
@@ -46,7 +46,8 @@ class ScriptThread(controller.QTaskThread):
     """
     def __init__(self, name=None, setupargs=None, setupkwargs=None, signal_pool=None):
         controller.QTaskThread.__init__(self,name=name,setupargs=setupargs,setupkwargs=setupkwargs,signal_pool=signal_pool)
-        self._monitor_signal.connect(self._on_monitor_signal)
+        self._monitor_signal_caller=controller.thread_slot()(self._on_monitor_signal,self._thread)
+        self._monitor_signal.connect(self._monitor_signal_caller.slot)
         self._monitored_signals={}
         self.executing=False
         self.interrupt_reason="shutdown"
@@ -118,8 +119,7 @@ class ScriptThread(controller.QTaskThread):
             self.interrupt_reason="failed"
             raise
 
-    _monitor_signal=QtCore.pyqtSignal("PyQt_PyObject")
-    @QtCore.pyqtSlot("PyQt_PyObject")
+    _monitor_signal=Signal(object)
     def _on_monitor_signal(self, value):
         mon,msg=value
         try:
