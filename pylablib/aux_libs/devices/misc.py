@@ -46,7 +46,8 @@ def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, erro
         name: name or path of the library (can also be a list or a tuple with several names, which are tried in that order).
         locations: list or tuple of locations to search for a library; the function tries locations in order and returns the first successfully loaded library
             a location is a string which can be a path to the containing folder, ``"local"`` (local package path given by :func:`get_default_lib_folder`),
-            or ``"global"`` (load path as is; also searches in the standard OS specified locations determined by ``PATH`` variable, e.g., ``System32`` folder)
+            or ``"global"`` (load path as is; also searches in the standard OS specified locations determined by ``PATH`` variable, e.g., ``System32`` folder);
+            a location can also be subfolder of ``"local"``, which maps to the subfolder of the default library folder.
         locally(bool): if ``True``, change local path to allow loading of dependent DLLs
         call_conv(str): DLL call convention; can be either ``"cdecl"`` (corresponds to ``ctypes.cdll``) or ``"stdcall"`` (corresponds to ``ctypes.windll``)
         error_message(str): error message to add in addition to the default error message shown when the DLL is not found
@@ -64,8 +65,8 @@ def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, erro
     elif check_order=="name":
         check_order=[(loc,n) for n in name for loc in locations]
     for loc,n in check_order:
-        if loc=="local":
-            folder=default_lib_folder
+        if loc.startswith("local") and (len(loc)==5 or loc[5] in "/\\"):
+            folder=default_lib_folder+loc[5:]
         elif loc=="global":
             folder=""
         else:

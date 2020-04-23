@@ -506,7 +506,7 @@ class RigolDG1000(GenericAWG):
     """
     Rigol DG1000 AWG.
     """
-    _default_operation_cooldown=0.03
+    _default_operation_cooldown=0.05
     _channels_number=2
     _single_channel_commands={"output_sync",
         "burst_enabled","burst_mode","burst_ncycles","gate_polarity",

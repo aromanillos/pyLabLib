@@ -525,12 +525,13 @@ class PCOSC2Camera(IDevice):
         if since=="lastwait" and last_acq_frame>self._last_wait_frame:
             self._last_wait_frame=last_acq_frame
             return
+        new_valid=False
         ctd=general.Countdown(timeout)
         while not ctd.passed():
             new_valid=self._next_wait_buffer>self._next_read_buffer
             if new_valid:
                 break
-            time.sleep(0.001)
+            time.sleep(period)
         if not new_valid:
             raise PCOSC2TimeoutError()
         self._last_wait_frame=self._next_wait_buffer-1
@@ -787,7 +788,7 @@ class PCOSC2Camera(IDevice):
         Note that if the binary status line is not activated, frame info will be an arbitrary noise.
         If ``return_info==False``, just return a list of frames.
 
-        Fro technical reasons, frames should be read in successively, and every frame can only be read ones.
+        For technical reasons, frames should be read in successively, and every frame can only be read once.
         Hence, if `rng` is specified, it can lead to either skipping unread frames (if `rng` starts after the first unread frame),
         or reduced number of frames compared to request (if `rng` attempts to read non-acquired or already-read frames).
         """
@@ -807,7 +808,6 @@ class PCOSC2Camera(IDevice):
         if rng[0]>new_images_rng[0]:
             for _ in range(rng[0]-new_images_rng[0]):
                 self._read_next_buffer(npx=0)
-            rng[0]=new_images_rng[0]
         npx=dim[0]*dim[1]
         imgs,_=list(zip(*[self._read_next_buffer(npx=npx) for _ in range(rng[1]-rng[0]+1)]))
         imgs=[image_utils.convert_image_indexing(im.reshape(dim),"rct",self.image_indexing) for im in imgs]

@@ -26,7 +26,8 @@ def convert_image_indexing(img, src, dst):
     """
     Convert image indexing style.
 
-    `img` is the source image (2D numpy array), `src` and `dst` are current format and desired format.
+    `img` is the source image (2D numpy array or a 3D numpy array, in which case the last axis corresponds to a channel, e.g., RGB),
+    `src` and `dst` are current format and desired format.
     Formats can be ``"rcb"`` (first index is row, second is column, rows count from the bottom), ``"rct"`` (same, but rows count from the top).
     ``"xyb"`` (first index is column, second is row, rows count from the bottom), or ``"xyt"`` (same but rows count form the top).
     ``"rc"`` is interpreted as ``"rct"``, ``"xy"`` as ``"xyt"``
@@ -38,23 +39,23 @@ def convert_image_indexing(img, src, dst):
     if src==dst:
         return img
     if src[:2]==dst[:2]: # same order, different row direction
-        return img[::-1,:] if src[:2]=="rc" else img[:,::-1]
+        return img[::-1,:,...] if src[:2]=="rc" else img[:,::-1,...]
     if src[2]==dst[2]: # same row direction, different order
         if src[2]=="t":
-            return img.T
+            return img.swapaxes(0,1)
         if src=="rcb":
-            return (img[::-1,:].T)[:,::-1]
+            return (img[::-1,:,...].swapaxes(0,1))[:,::-1,...]
         else:
-            return (img[:,::-1].T)[::-1,:]
+            return (img[:,::-1,...].swapaxes(0,1))[::-1,:,...]
     # different row direction, different order
     if src=="rcb": # dst=="xyt"
-        return img[::-1,:].T
+        return img[::-1,:,...].swapaxes(0,1)
     if src=="rct": # dst=="xyb"
-        return img.T[:,::-1]
+        return img.swapaxes(0,1)[:,::-1,...]
     if src=="xyb": # dst=="rct"
-        return img[:,::-1].T
+        return img[:,::-1,...].swapaxes(0,1)
     if src=="xyt": # dst=="rcb"
-        return img.T[::-1,:]
+        return img.swapaxes(0,1)[::-1,:,...]
     
 
 class ROI(object):

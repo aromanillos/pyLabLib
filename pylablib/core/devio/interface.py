@@ -72,7 +72,8 @@ class IDevice(object):
             getter=self._multiplex_func(getter,*mux[:2],multiarg=multiarg) if getter else None
             setter=self._multiplex_func(setter,*mux[:2],multiarg=multiarg) if setter else None
         self._info_nodes[kind][path]=(getter,setter,ignore_error)
-        self._info_nodes_order[kind].append(path)
+        if path not in self._info_nodes_order[kind]:
+            self._info_nodes_order[kind].append(path)
     def _add_full_info_node(self, path, getter=None, ignore_error=(), mux=None):
         return self._add_info_node(path,"full_info",getter=getter,ignore_error=ignore_error,mux=mux)
     def _add_status_node(self, path, getter=None, ignore_error=(), mux=None):

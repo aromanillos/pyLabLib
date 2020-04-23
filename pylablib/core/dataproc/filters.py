@@ -272,9 +272,14 @@ def _decimate(wf, n=1, dec_mode="skip", axis=0, mode="drop"):
                 - ``'min'`` - leave min point;
                 - ``'max'`` - leave max point;
                 - ``'median'`` - leave median point (works as a median filter).
-        axis (int): Axis along which to perform the decimation.
+        axis (int): Axis along which to perform the decimation; can also be a tuple, in which case the same decimation is performed along several axes.
         mode (str): Determines what to do with the last bin if it's incomplete. Can be either ``'drop'`` (omit the last bin) or ``'leave'`` (keep it).
     """
+    if isinstance(axis,tuple):
+        result=wf
+        for ax in axis:
+            result=_decimate(result,n=n,dec_mode=dec_mode,axis=ax,mode=mode)
+        return result
     wf,wf_orig=np.asarray(wf),wf
     wrapper=wrap(wf_orig) if wf.ndim<3 else None
     if dec_mode=="bin" or dec_mode=="mean":

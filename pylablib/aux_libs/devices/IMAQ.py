@@ -649,8 +649,8 @@ class IMAQCamera(interface.IDevice):
         Read multiple images specified by `rng` (by default, all un-read images).
         
         Some frames in the result are "stuck together" in a single buffer, if their memory locations are continuous.
-        Return list ``[(number_of_frames, raw_data)]``, where `number_of_frames` specifies number of frames in a given array element,
-        and `raw_data` is the binary string corresponding to these frames (of the size ``self._frame_size*number_returned``).
+        Return list ``[(number_of_frames, frames)]``, where `number_of_frames` specifies number of frames in a given array element,
+        and `frames` is a 3D numpy array containing all frames.
         Compared to :meth:`read_multiple_images`, always assumes ``peek==False`` and ``missing_frame="skip"`` (default values).
         Also, always return frames in ``"rct"`` format (row-first indexing, going from the top).
 
