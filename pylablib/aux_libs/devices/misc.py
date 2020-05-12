@@ -81,7 +81,7 @@ def load_lib(name, locations=("global",), call_conv="cdecl", locally=False, erro
             env_paths=old_env_path.split(";")
             if not any([files.paths_equal(loc_folder,ep) for ep in env_paths if ep]):
                 os.environ["PATH"]=files.normalize_path(loc_folder)+";"+os.environ["PATH"]+";"+files.normalize_path(loc_folder)+";"
-            path=loc_name
+            path=loc_name if folder=="" else "./"+loc_name
         try:
             if call_conv=="cdecl":
                 return ctypes.cdll.LoadLibrary(path)

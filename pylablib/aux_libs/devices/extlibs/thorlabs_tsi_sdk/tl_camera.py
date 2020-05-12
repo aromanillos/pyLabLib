@@ -12,7 +12,7 @@ import platform
 ##### MODIFIED START #####
 from ... import misc
 import os
-def _load_dll():
+def _load_dll(local=False):
     arch=platform.architecture()[0]
     winarch="64bit" if platform.machine().endswith("64") else "32bit"
     if arch=="32bit" and winarch=="64bit":
@@ -20,7 +20,14 @@ def _load_dll():
     else:
         thorcam_path=r"C:\Program Files\Thorlabs\Scientific Imaging\ThorCam"
     error_message="The library is supplied with Thorlabs ThorCam software, or {};\n{}".format(misc.default_source_message,misc.default_placing_message)
-    return misc.load_lib("thorlabs_tsi_camera_sdk.dll",locations=(thorcam_path,"local/thorlabs_tsi_sdk",),locally=True,error_message=error_message)
+    try:
+        locations=("local/thorlabs_tsi_sdk",) if local else (thorcam_path,"local/thorlabs_tsi_sdk",)
+        dll=misc.load_lib("./thorlabs_tsi_camera_sdk.dll",locations=locations,locally=True,error_message=error_message)
+        dll.tl_camera_get_communication_interface
+        return dll
+    except AttributeError: # older version of DLL; fall back on local copy
+        _logger.debug("Local version of TSI SDK is too old; falling back onto the local copy")
+        return _load_dll(local=True)
 ##### MODIFIED END #####
 
 import numpy as np

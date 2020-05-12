@@ -71,8 +71,8 @@ class BinROICtl(QtWidgets.QWidget):
         self.name=name
         self.kind=kind
         self.setObjectName(self.name)
-        self.setMinimumSize(QtCore.QSize(232, 83))
-        self.setMaximumSize(QtCore.QSize(16777215, 83))
+        self.setMinimumSize(QtCore.QSize(100, 60))
+        self.setMaximumSize(QtCore.QSize(16777215, 60))
         self.gridLayout = QtWidgets.QGridLayout(self)
         self.gridLayout.setObjectName("gridLayout")
         self.labelROI = QtWidgets.QLabel(self)
@@ -118,6 +118,8 @@ class BinROICtl(QtWidgets.QWidget):
         self.y_bin.setObjectName("y_bin")
         self.gridLayout.addWidget(self.y_bin, 2, 3, 1, 1)
         self.gridLayout.setContentsMargins(0,0,0,0)
+        self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum,QtWidgets.QSizePolicy.Preferred))
+        self.gridLayout.setSpacing(4)
         self.gridLayout.setColumnStretch(1, 2)
         self.gridLayout.setColumnStretch(2, 2)
         self.gridLayout.setColumnStretch(3, 1)
@@ -131,6 +133,7 @@ class BinROICtl(QtWidgets.QWidget):
             v.set_number_limit(value_type="int")
             v.set_value(1)
         for v in [self.x_min,self.x_max,self.x_bin,self.y_min,self.y_max,self.y_bin]:
+            v.setMinimumWidth(40)
             v.value_changed.connect(self._on_edit)
         self.set_limits(xlim,ylim,maxbin=maxbin,minsize=minsize,maxsize=maxsize)
 

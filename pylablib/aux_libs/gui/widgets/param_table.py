@@ -52,7 +52,7 @@ class ParamTable(QtWidgets.QWidget):
         self.i=dictionary.ItemAccessor(self.get_indicator,self.set_indicator)
         self.w=dictionary.ItemAccessor(self.get_widget)
 
-    def setupUi(self, name, add_indicator=False, display_table=None, display_table_root=None, gui_thread_safe=False):
+    def setupUi(self, name, add_indicator=False, display_table=None, display_table_root=None, gui_thread_safe=False, cache_values=False, change_focused_control=False):
         """
         Setup the table.
 
@@ -65,6 +65,13 @@ class ParamTable(QtWidgets.QWidget):
                 or it is equal to `name` if there is an external table  (``display_table is not None``)
             gui_thread_safe (bool): if ``True``, all value-access and indicator-access calls
                 (``get/set_value``, ``get/set_all_values``, ``get/set_indicator``, and ``update_indicators``) are automatically called in the GUI thread.
+            cache_values (bool): if ``True`` or ``"update_one"``, store a dictionary with all the current values and update it every time a GUI value is changed;
+                provides a thread-safe way to check current parameters without lag
+                (unlike :meth:`get_all_values` with ``gui_thread_safe==True``, which re-routes call to a GUI thread and may cause up to 50ms delay)
+                can also be set to ``"update_all"``, in which case change of any value will cause value update of all variables;
+                otherwise, change of a value will only cause update of that same value (mightwhich potentially  miss some value updates for custom controls).
+            change_focused_control (bool): if ``False`` and :meth:`set_value` method is called while the widget has user focus, ignore the value;
+                note that :meth:`set_all_values` will still set the widget value.
         """
         self.name=name
         self.setObjectName(_fromUtf8(self.name))
@@ -73,7 +80,6 @@ class ParamTable(QtWidgets.QWidget):
         self.formLayout.setContentsMargins(5,5,5,5)
         self.formLayout.setObjectName(_fromUtf8("formLayout"))
         self.add_indicator=add_indicator
-        self.change_focused_control=False
         if display_table is None:
             self.display_table=values_module.IndicatorValuesTable()
             self.display_table_root=""
@@ -81,8 +87,18 @@ class ParamTable(QtWidgets.QWidget):
             self.display_table=display_table
             self.display_table_root=display_table_root if display_table_root is not None else self.name
         self.gui_thread_safe=gui_thread_safe
+        self.change_focused_control=change_focused_control
+        self.cache_values=cache_values
+        self.current_values=dictionary.Dictionary()
 
     value_changed=QtCore.pyqtSignal("PyQt_PyObject","PyQt_PyObject")
+    @controller.exsafeSlot()
+    def _update_cache_values(self, name=None, value=None):
+        if self.cache_values:
+            if name is None or self.cache_values=="update_all":
+                self.current_values=self.get_all_values()
+            else:
+                self.current_values[name]=self.get_value(name)
 
     def _normalize_location(self, location, default=(None,0,1,1)):
         if not isinstance(location,(list,tuple)):
@@ -100,9 +116,10 @@ class ParamTable(QtWidgets.QWidget):
         self.display_table.add_handler(path,params.value_handler)
         if params.indicator_handler:
             self.display_table.add_indicator_handler(path,params.indicator_handler)
-        changed_signal=params.value_handler.value_changed_signal()
-        if changed_signal:
-            changed_signal.connect(lambda value: self.value_changed.emit(name,value))
+        params.value_handler.connect_value_changed_handler(lambda value: self.value_changed.emit(name,value),only_signal=True)
+        if self.cache_values:
+            params.value_handler.connect_value_changed_handler(lambda value: self._update_cache_values(name,value),only_signal=False)
+        self._update_cache_values()
     def add_simple_widget(self, name, widget, label=None, value_handler=None, add_indicator=None, location=(None,0)):
         """
         Add a 'simple' (single-spaced, single-valued) widget to the table.
@@ -121,7 +138,7 @@ class ParamTable(QtWidgets.QWidget):
         """
         if name in self.params:
             raise KeyError("widget {} already exists".format(name))
-        row,col,rowspan,_=self._normalize_location(location)
+        row,col,rowspan,colspan=self._normalize_location(location,default=(None,0,1,None))
         if label is not None:
             wlabel=QtWidgets.QLabel(self)
             wlabel.setObjectName(_fromUtf8("{}__label".format(name)))
@@ -140,9 +157,9 @@ class ParamTable(QtWidgets.QWidget):
         else:
             indicator_handler=None
         if wlabel is None:
-            self.formLayout.addWidget(widget,row,col,rowspan,2 if add_indicator else 3)
+            self.formLayout.addWidget(widget,row,col,rowspan,colspan or (2 if add_indicator else 3))
         else:
-            self.formLayout.addWidget(widget,row,col+1,rowspan,1 if add_indicator else 2)
+            self.formLayout.addWidget(widget,row,col+1,rowspan,colspan or (1 if add_indicator else 2))
         self._add_widget(name,self.ParamRow(widget,wlabel,value_handler,indicator_handler))
         return value_handler
 
@@ -350,10 +367,14 @@ class ParamTable(QtWidgets.QWidget):
         """Get value of a widget with the given name"""
         return self.display_table.get_value((self.display_table_root,name))
     @controller.gui_thread_method
-    def set_value(self, name, value):
-        """Set value of a widget with the given name"""
+    def set_value(self, name, value, force=False):
+        """
+        Set value of a widget with the given name
+        
+        If ``force==True``, force widget value (e.g., ignoring restriction on not chaniging values of focused widgets)
+        """
         par=self.params[name]
-        if self.change_focused_control or par.widget is None or not par.widget.hasFocus():
+        if force or par.value_handler.is_set_allowed(allow_focus=self.change_focused_control):
             return self.display_table.set_value((self.display_table_root,name),value)
     @controller.gui_thread_method
     def get_all_values(self):
@@ -413,6 +434,7 @@ class ParamTable(QtWidgets.QWidget):
             self.formLayout.setSizeConstraint(QtWidgets.QLayout.SetDefaultConstraint)
             self.formLayout.setContentsMargins(5,5,5,5)
             self.formLayout.setObjectName(_fromUtf8("formLayout"))
+            self._update_cache_values()
 
     
     def __getitem__(self, name):

@@ -1,7 +1,7 @@
 from .extlibs.thorlabs_tsi_sdk import tl_camera
 
 from ...core.devio.interface import IDevice
-from ...core.utils import py3, general
+from ...core.utils import py3, general, funcargparse
 from ...core.dataproc import image as image_utils
 
 _depends_local=["...core.devio.interface"]
@@ -63,6 +63,9 @@ class ThorlabsTSICamera(IDevice):
         self._add_settings_node("frame_time",self.get_frame_time)
         self._add_settings_node("exposure",self.get_exposure,self.set_exposure)
         self._add_status_node("timings",self.get_timings)
+        self._add_settings_node("trigger_mode",self.get_trigger_mode,self.set_trigger_mode)
+        self._add_settings_node("ext_trigger",self.get_ext_trigger_parameters,self.setup_ext_trigger)
+        self._add_settings_node("hotpixel_correction",self.get_pixel_correction_parameters,self.enable_pixel_correction)
         self._add_status_node("buffer_size",self.get_buffer_size)
         self._add_status_node("buffer_status",self.get_buffer_status)
         self._add_status_node("data_dimensions",self.get_data_dimensions)
@@ -188,19 +191,70 @@ class ThorlabsTSICamera(IDevice):
         """Get current frame time (frame acquisition period)"""
         return self.cam.frame_time_us*1E-6
 
+    _trigger_modes={"int":tl_camera.OPERATION_MODE.SOFTWARE_TRIGGERED,"ext":tl_camera.OPERATION_MODE.HARDWARE_TRIGGERED,"bulb":tl_camera.OPERATION_MODE.BULB}
+    _trigger_modes_inv=general.invert_dict(_trigger_modes)
+    def set_trigger_mode(self, mode):
+        """
+        Set trigger mode.
+
+        Can be ``"int"`` (internal/software), ``"ext"`` (external/hardware), or ``"bulb"`` (bulb trigger).
+        """
+        funcargparse.check_parameter_range(mode,"mode",self._trigger_modes.keys())
+        self.cam.operation_mode=self._trigger_modes[mode]
+        return self.get_trigger_mode()
+    def get_trigger_mode(self):
+        """
+        Get trigger mode.
+
+        Can be ``"int"`` (internal/software), ``"ext"`` (external/hardware), or ``"bulb"`` (bulb trigger).
+        """
+        return self._trigger_modes_inv[self.cam.operation_mode]
+    _trigger_pols={"rise":tl_camera.TRIGGER_POLARITY.ACTIVE_HIGH,"fall":tl_camera.TRIGGER_POLARITY.ACTIVE_LOW}
+    _trigger_pols_inv=general.invert_dict(_trigger_pols)
+    def setup_ext_trigger(self, polarity):
+        """Setup external trigger polarity (``"rise"`` or ``"fall"``)"""
+        funcargparse.check_parameter_range(polarity,"polarity",self._trigger_pols.keys())
+        self.cam.trigger_polarity=self._trigger_pols[polarity]
+        return self.get_ext_trigger_parameters()
+    def get_ext_trigger_parameters(self):
+        """Return external trigger polarity"""
+        return self._trigger_pols_inv[self.cam.trigger_polarity]
+    def send_software_trigger(self):
+        """Send software trigger signal"""
+        self.cam.issue_software_trigger()
+
+    def enable_pixel_correction(self, enable=True, threshold=None):
+        """Enable or disable hotpixel correction and set its threshold (``None`` means keep unchanged)"""
+        self.cam.is_hot_pixel_correction_enabled=enable
+        if threshold is not None:
+            self.cam.hot_pixel_correction_threshold=threshold
+        return self.get_pixel_correction_parameters()
+    def get_pixel_correction_parameters(self):
+        """Return pixel correction parameters (enabled and threshold)"""
+        return (self.cam.is_hot_pixel_correction_enabled,self.cam.hot_pixel_correction_threshold)
+
     ### Acquisition process controls ###
-    def start_acquisition(self, buffn=None):
+    def start_acquisition(self, buffn=None, nframes="default", auto_start=True):
         """
         Start camera acquisition.
 
-        `buffn` specifies number of frames in the ring buffer (automatically capped at 32, which is the SDK limit)
+        Args:
+            buffn: number of frames in the ring buffer
+            nframes: number of frames to acquire per trigger (software of hardware); ``None`` means unlimited number;
+                by default, set to ``None`` for software trigger (i.e., run until stopped), and 1 for hardware trigger (i.e., one frame per trigger pulse)
+            auto_start: if ``True`` and the trigger is set into software mode, automatically start recording;
+                otherwise, only start recording when :meth:`send_software_trigger` is called explicitly;
+                this value is meaningless in the hardware or bulb trigger mode
         """
         self.stop_acquisition()
         buffn=buffn or self._default_nframes
         self._buffer=self.RingBuffer(buffn+10)
-        self.cam.frames_per_trigger_zero_for_unlimited=0
+        if nframes=="default":
+            nframes=None if self.get_trigger_mode()=="int" else 1
+        self.cam.frames_per_trigger_zero_for_unlimited=nframes or 0
         self.cam.arm(buffn)
-        self.cam.issue_software_trigger()
+        if auto_start:
+            self.cam.issue_software_trigger()
     def stop_acquisition(self):
         """
         Stop acquisition.

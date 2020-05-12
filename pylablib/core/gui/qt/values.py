@@ -4,7 +4,7 @@ Uniform representation of values from different widgets: numerical and text edit
 
 from .widgets import edit
 from PyQt5 import QtCore, QtWidgets
-from ...utils import dictionary, py3, string
+from ...utils import dictionary, py3, string, functions as func_utils
 from ...utils.functions import FunctionSignature
 from .thread import controller
 
@@ -65,6 +65,7 @@ class IValueHandler(object):
     def __init__(self, widget):
         object.__init__(self)
         self.widget=widget
+        self._change_handlers=[]
     def get_value(self, name=None):
         """
         Get widget value.
@@ -107,6 +108,37 @@ class IValueHandler(object):
         if hasattr(self.widget,"value_changed"):
             return self.widget.value_changed
         return None
+    def connect_value_changed_handler(self, handler, only_signal=True):
+        """
+        Connect value changed signal.
+
+        If ``only_signal==True``, equaivalent to connecting a handler function to :meth:`value_changed_signal` signal;
+        however, if ``only_signal==True``, it also works for some objects (e.g., ``QLabel``) don't have built-in on-changed signals
+        by calling the handler explicitly every time the value is changed.
+
+        Note that the connection is always direct (i.e., it doesn't deal with message queues and different threads, but rather directly calls the handler funciton).
+        If you need to connect a handler to a signal using some other connection method, you can use :meth:`value_changed_signal` directly.
+        """
+        signal=self.value_changed_signal()
+        if signal is not None:
+            signal.connect(handler,QtCore.Qt.DirectConnection)
+        elif not only_signal:
+            self._change_handlers.append(handler)
+    def _notify_value_changed_handlers(self, value):
+        """Notify emulated value changed handlers"""
+        for h in self._change_handlers:
+            func_utils.call_cut_args(h,value)
+    _focused_set_allowed=False
+    def is_set_allowed(self, allow_focus=True):
+        """
+        Check if setting value from the code is allowed.
+
+        Args:
+            focus: if ``False``, indicates that settings of focused widgets isn't allowed, with some exceptions (buttons, check boxes, combo boxes)
+        """
+        if (not self._focused_set_allowed) and (not allow_focus) and hasattr(self.widget,"hasFocus") and self.widget.hasFocus():
+            return False
+        return True
 
 
 class VirtualValueHandler(IValueHandler):
@@ -121,7 +153,6 @@ class VirtualValueHandler(IValueHandler):
         IValueHandler.__init__(self,None)
         self.complex_value=complex_value
         self.value=dictionary.Dictionary(value) if complex_value else value
-        self.value_changed=QtCore.pyqtSignal("PyQt_PyObject")
     def get_value(self, name=None):
         if name is None:
             return self.value
@@ -137,9 +168,7 @@ class VirtualValueHandler(IValueHandler):
             if name in self.value:
                 del self.value[name]
             self.value[name]=value
-        self.value_changed.emit(self.value)
-    def value_changed_signal(self):
-        return self.value_changed
+        self._notify_value_changed_handlers(value)
 
 _default_getters=("get_value","get_all_values")
 _default_setters=("set_value","set_all_values")
@@ -280,10 +309,13 @@ class LineEditValueHandler(ISingleValueHandler):
         return self.widget.textChanged
 class LabelValueHandler(ISingleValueHandler):
     """Value handler for ``QLabel`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return str(self.widget.text())
     def set_single_value(self, value):
-        return self.widget.setText(str(value))
+        value=str(value)
+        self._notify_value_changed_handlers(value)
+        return self.widget.setText(value)
 class IBoolValueHandler(ISingleValueHandler):
     """Generic value handler for widgets with boolean values"""
     def __init__(self, widget, labels=("Off","On")):
@@ -293,6 +325,7 @@ class IBoolValueHandler(ISingleValueHandler):
         return self.labels[value]
 class CheckboxValueHandler(IBoolValueHandler):
     """Value handler for ``QCheckBox`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return self.widget.isChecked()
     def set_single_value(self, value):
@@ -301,6 +334,7 @@ class CheckboxValueHandler(IBoolValueHandler):
         return self.widget.stateChanged
 class PushButtonValueHandler(IBoolValueHandler):
     """Value handler for ``QPushButton`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return self.widget.isChecked()
     def set_single_value(self, value):
@@ -319,6 +353,7 @@ class PushButtonValueHandler(IBoolValueHandler):
         return IBoolValueHandler.repr_single_value(self,value)
 class ToolButtonValueHandler(IBoolValueHandler):
     """Value handler for ``QToolButton`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return self.widget.isChecked()
     def set_single_value(self, value):
@@ -331,6 +366,7 @@ class ToolButtonValueHandler(IBoolValueHandler):
         return IBoolValueHandler.repr_single_value(self,value)
 class ComboBoxValueHandler(ISingleValueHandler):
     """Value handler for ``QComboBox`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return self.widget.currentIndex()
     def set_single_value(self, value):
@@ -343,9 +379,11 @@ class ComboBoxValueHandler(ISingleValueHandler):
         return self.widget.itemText(value)
 class ProgressBarValueHandler(ISingleValueHandler):
     """Value handler for ``QProgressBar`` widget"""
+    _focused_set_allowed=True
     def get_single_value(self):
         return self.widget.value()
     def set_single_value(self, value):
+        self._notify_value_changed_handlers(int(value))
         return self.widget.setValue(int(value))
 
 def is_handled_widget(widget):

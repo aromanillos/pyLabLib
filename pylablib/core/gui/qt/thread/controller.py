@@ -173,12 +173,17 @@ class QThreadController(QtCore.QObject):
         self._message_uid=0
         self._sync_queue={}
         self._sync_clearance=set()
-        # set up variable handling
+        self._call_queue=[]
+        self._next_place_call_counter=0
+        self._next_execute_call_counter=0
+        self._call_counter_lock=threading.Lock()
+        # set up variable and methdos handling
         self._params_val=dictionary.Dictionary()
         self._params_val_lock=threading.Lock()
         self._params_exp={}
         self._params_exp_lock=threading.Lock()
         self._params_funcs=dictionary.Dictionary()
+        self._thread_methods={}
         # set up high-level synchronization
         self._exec_notes={}
         self._exec_notes_lock=threading.Lock()
@@ -226,10 +231,22 @@ class QThreadController(QtCore.QObject):
             with self._lifetime_state_lock:
                 if self._lifetime_state!="finishing":
                     self._stop_requested=True
+    def _get_next_call_counter(self):
+        with self._call_counter_lock:
+            cnt=self._next_place_call_counter
+            self._next_place_call_counter+=1
+        return cnt
+    def _execute_queued_call(self, new_call=None):
+        if new_call is not None:
+            heapq.heappush(self._call_queue,new_call)
+        while self._call_queue and self._call_queue[0][0]==self._next_execute_call_counter:
+            _,call=heapq.heappop(self._call_queue)
+            self._next_execute_call_counter+=1
+            call()
     _interrupt_called=QtCore.pyqtSignal("PyQt_PyObject")
     @exsafeSlot("PyQt_PyObject")
     def _on_call_in_thread(self, call): # call signal processing
-        call()
+        self._execute_queued_call(call)
 
     ### Execution starting / finishing ###
     _recv_started_event=QtCore.pyqtSignal()
@@ -519,6 +536,29 @@ class QThreadController(QtCore.QObject):
             return name in self._params_val
 
 
+    ### Thread methods management ###
+    def add_thread_method(self, name, method):
+        """
+        Add a thread method.
+
+        Adds a named method to the thread, which can be called later using :meth:`call_thread_method`.
+        This method will be called in this thread.
+        
+        Useful for GUI thread to set up some global access methods, which other threads can safely use.
+        For :class:`QTaskThread` threads it's a better idea to set up a command instead.
+        """
+        self._thread_methods[name]=lambda *args,**kwargs: self.call_in_thread_sync(method,args=args,kwargs=kwargs,sync=True,same_thread_shortcut=True)
+    def delete_thread_method(self, name):
+        """Delete a thread method"""
+        del self._thread_methods[name]
+    def call_thread_method(self, name, *args, **kwargs):
+        """
+        Call a thread method.
+        
+        Method needs to be set up beforehand using :meth:`add_thread_method`. It is always executed in the current thread.
+        """
+        self._thread_methods[name](*args,**kwargs)
+
     ##########  EXTERNAL CALLS  ##########
     ## Methods to be called by functions executing in other thread ##
 
@@ -697,7 +737,8 @@ class QThreadController(QtCore.QObject):
     ### External call management ###
     def _place_call(self, call, tag=None, priority=0):
         if tag is None:
-            self._interrupt_called.emit(call)
+            cnt=self._get_next_call_counter()
+            self._interrupt_called.emit((cnt,call))
         else:
             self.send_message(tag,call,priority=priority)
     def call_in_thread_callback(self, func, args=None, kwargs=None, callback=None, tag=None, priority=0):
