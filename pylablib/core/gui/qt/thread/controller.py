@@ -557,7 +557,7 @@ class QThreadController(QtCore.QObject):
         
         Method needs to be set up beforehand using :meth:`add_thread_method`. It is always executed in the current thread.
         """
-        self._thread_methods[name](*args,**kwargs)
+        return self._thread_methods[name](*args,**kwargs)
 
     ##########  EXTERNAL CALLS  ##########
     ## Methods to be called by functions executing in other thread ##

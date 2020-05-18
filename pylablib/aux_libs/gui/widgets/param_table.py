@@ -243,10 +243,8 @@ class ParamTable(QtWidgets.QWidget):
             
         Rest of the arguments and the return value are the same as :meth:`add_simple_widget`.
         """
-        widget=QtWidgets.QLabel(self)
+        widget=widget_label.LVTextLabel(self,value=value)
         widget.setObjectName(_fromUtf8(self.name+"_"+name))
-        if value is not None:
-            widget.setText(str(value))
         return self.add_simple_widget(name,widget,label=label,add_indicator=False,location=location)
     def add_num_label(self, name, value=0, limiter=None, formatter=None, label=None, location=(None,0)):
         """

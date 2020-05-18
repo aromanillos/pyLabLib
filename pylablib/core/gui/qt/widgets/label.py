@@ -1,5 +1,33 @@
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from ... import format,limit
+
+
+
+class LVTextLabel(QtWidgets.QLabel):
+    """
+    Labview-style text label.
+
+    The main difference from the standard :cls:`QLabel` is the changed event.
+    """
+    def __init__(self, parent, value=None):
+        QtWidgets.QLabel.__init__(self, parent)
+        self._value=None
+        if value is not None:
+            self.set_value(value)
+    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    """Signal emitted when value is changed"""
+    def get_value(self):
+        """Get current numerical value"""
+        return self._value
+    def set_value(self, value):
+        """Set and display current text value"""
+        if value is not None:
+            if self._value!=value:
+                self._value=value
+                self.setText(str(self._value))
+                self.value_changed.emit(self._value)
+
+
 
 class LVNumLabel(QtWidgets.QLabel):
     """
@@ -8,7 +36,7 @@ class LVNumLabel(QtWidgets.QLabel):
     Supports different number representations and metric perfixes.
     """
     def __init__(self, parent, value=None, num_limit=None, num_format=None, allow_text=True):
-        QtWidgets.QLineEdit.__init__(self, parent)
+        QtWidgets.QLabel.__init__(self, parent)
         self.num_limit=limit.as_limiter(num_limit) if num_limit is not None else limit.NumberLimit()
         self.num_format=format.as_formatter(num_format) if num_format is not None else format.FloatFormatter()
         self._value=None
@@ -38,7 +66,7 @@ class LVNumLabel(QtWidgets.QLabel):
         """
         Set numerical format
         
-        `kind` specifies the format kind (``"float"`` or ``"int"``), and the additional arguments are passed to the corresponding formatter.
+        `kind` specifies the format kind (``"float"``, ``"int"``, or a format string, e.g., ``".3f"``), and the additional arguments are passed to the corresponding formatter.
         See :class:`.format.FloatFormatter` and :class:`.format.IntegerFormatter` for details.
         """
         if kind=="float":
@@ -46,19 +74,27 @@ class LVNumLabel(QtWidgets.QLabel):
         elif kind=="int":
             formatter=format.IntegerFormatter()
         else:
-            raise ValueError("unknown format: {}".format(kind))
+            try:
+                ("{:"+kind+"}").format(0)
+                formatter=format.FmtStringFormatter(kind)
+            except ValueError:
+                raise ValueError("unknown format: {}".format(kind))
         self.change_formatter(formatter)
     
     def repr_value(self, value):
         """Return representation of `value` according to the current numerical format"""
         return self.num_format(value)
 
+    value_changed=QtCore.pyqtSignal("PyQt_PyObject")
+    """Signal emitted when value is changed"""
     def get_value(self):
         """Get current numerical value"""
         return self._value
     def set_value(self, value):
         """Set and display current numerical value"""
         if value is not None:
+            if self._value==value:
+                return True
             try:
                 if isinstance(value,str):
                     if self.allow_text:
@@ -70,6 +106,7 @@ class LVNumLabel(QtWidgets.QLabel):
                     value=self.num_limit(value)
                     self._value=value
                     self.setText(self.num_format(self._value))
+                self.value_changed.emit(self._value)
                 return True
             except limit.LimitError:
                 pass

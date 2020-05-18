@@ -321,6 +321,14 @@ class PhotonFocusIMAQCamera(IMAQCamera):
         w=self.v["Window/W"]
         h=self.v["Window/H"]
         return ox,ox+w,oy,oy+h
+    def fast_shift_roi(self, hstart=0, vstart=0):
+        """
+        Shift ROI by only chaning its origin, but keeping the shape the same.
+
+        Note that if the ROI is invalid, it won't be truncated (as is the standard behavior of :meth:`set_roi`), which might lead to errors later.
+        """
+        self.v["Window/X"]=hstart
+        self.v["Window/Y"]=vstart
     def set_roi(self, hstart=0, hend=None, vstart=0, vend=None):
         """
         Setup camera ROI.
@@ -340,6 +348,8 @@ class PhotonFocusIMAQCamera(IMAQCamera):
         self.v["Window/H"]=min(vend-vstart,imaq_detector_size[1])
         self.v["Window/X"]=hstart
         self.v["Window/Y"]=vstart
+        self.v["Window/W"]=min(hend-hstart,imaq_detector_size[0]) # in case the previous assignment truncated
+        self.v["Window/H"]=min(vend-vstart,imaq_detector_size[1])
         self._update_imaq()
         return self.get_roi()
     def get_roi_limits(self):

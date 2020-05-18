@@ -75,13 +75,13 @@ class IMAQCamera(interface.IDevice):
         self._add_full_info_node("interface_name",lambda: self.name)
         self._add_status_node("buffer_size",lambda: self.get_buffer_status().size)
         self._add_status_node("buffer_status",self.get_buffer_status)
+        self._add_settings_node("triggers_in_cfg",self._get_triggers_in_cfg,self._set_triggers_in_cfg)
+        self._add_settings_node("triggers_out_cfg",self._get_triggers_out_cfg,self._set_triggers_out_cfg)
         self._add_settings_node("acquisition_parameters",self.get_acquisition_parameters,self.setup_acquisition)
         self._add_status_node("data_dimensions",self.get_data_dimensions)
         self._add_full_info_node("detector_size",self.get_detector_size)
         self._add_settings_node("roi",self.get_roi,self.set_roi)
         self._add_status_node("roi_limits",self.get_roi_limits)
-        self._add_settings_node("triggers_in_cfg",self._get_triggers_in_cfg,self._set_triggers_in_cfg)
-        self._add_settings_node("triggers_out_cfg",self._get_triggers_out_cfg,self._set_triggers_out_cfg)
 
         
     def open(self):
@@ -205,7 +205,7 @@ class IMAQCamera(interface.IDevice):
         "hsync":"IMG_TRIG_DRIVE_HSYNC","vsync":"IMG_TRIG_DRIVE_VSYNC","frame_start":"IMG_TRIG_DRIVE_FRAME_START","frame_done":"IMG_TRIG_DRIVE_FRAME_DONE"}
 
 
-    def configure_trigger_in(self, trig_type, trig_line=0, trig_pol="high", action="none", timeout=None):
+    def configure_trigger_in(self, trig_type, trig_line=0, trig_pol="high", action="none", timeout=None, reset_acquistion=True):
         """
         Configure input trigger.
 
@@ -216,6 +216,8 @@ class IMAQCamera(interface.IDevice):
             action(str): trigger action; can be ``"none"`` (disable trigger), ``"capture"`` (start capturing), ``"stop"`` (stop capturing),
                 ``"buffer"`` (capture a single frame), or ``"bufflist"`` (capture the whole buffer list once)
             timeout(float): timeout in seconds; ``None`` means not timeout.
+            reset_acquistion(bool): if the input triggers configuration has been changed, acquistion needs to be restart;
+                if ``True``, perform it automatically
         """
         funcargparse.check_parameter_range(trig_type,"trig_type",{"ext","rtsi","iso_in","software"})
         funcargparse.check_parameter_range(trig_pol,"trig_pol",{"high","low"})
@@ -226,6 +228,8 @@ class IMAQCamera(interface.IDevice):
         timeout=int(timeout*1E3) if timeout is not None else IMAQ_lib.IMAQInfiniteTimout
         lib.imgSessionTriggerConfigure2(self.sid,itrig_type,trig_line,itrig_pol,timeout,iaction)
         self._triggers_in[(trig_type,trig_line)]=(trig_pol,action,timeout)
+        if reset_acquistion:
+            self._reset_acquisition()
     def _get_triggers_in_cfg(self):
         return sorted(list(self._triggers_in.items()))
     def _set_triggers_in_cfg(self, cfg):
@@ -275,11 +279,17 @@ class IMAQCamera(interface.IDevice):
         itrig_pol=IMAQ_lib.IMAQ_trig_pol_inv[self._trigger_pol.get(trig_pol,trig_pol)]
         return lib.imgSessionTriggerRead2(self.sid,itrig_type,trig_line,itrig_pol)
 
-    def clear_all_triggers(self):
-        """Disable all triggers of the session"""
+    def clear_all_triggers(self, reset_acquistion=True):
+        """
+        Disable all triggers of the session
+        
+        If the input triggers configuration has been changed, acquistion needs to be restart; if ``reset_acquistion==True``, perform it automaticall
+        """
         lib.imgSessionTriggerClear(self.sid)
         self._triggers_in={}
         self._triggers_out={}
+        if reset_acquistion:
+            self._reset_acquisition()
 
 
     def setup_serial_params(self, write_term="", datatype="bytes"):
@@ -353,13 +363,16 @@ class IMAQCamera(interface.IDevice):
         lib.imgSessionSerialFlush(self.sid)
 
 
-    def _get_ctypes_buffer(self):
+    def _get_ctypes_buffer(self, nframes=None):
         if self._buffers:
-            cbuffs=(ctypes.c_char_p*self._buffer_frames)()
+            if nframes is None:
+                nframes=self._buffer_frames
+            cbuffs=(ctypes.c_char_p*nframes)()
             frames_per_buff=len(self._buffers[0])//self._frame_size
             for i,b in enumerate(self._buffers):
                 for j in range(frames_per_buff):
-                    cbuffs[i*frames_per_buff+j]=ctypes.addressof(b)+j*self._frame_size
+                    if i*frames_per_buff+j<nframes:
+                        cbuffs[i*frames_per_buff+j]=ctypes.addressof(b)+j*self._frame_size
             return cbuffs
         else:
             return None
@@ -401,7 +414,8 @@ class IMAQCamera(interface.IDevice):
         """
         self.clear_acquisition()
         self._allocate_buffers(frames)
-        cbuffs=self._get_ctypes_buffer()
+        cbuffs=self._get_ctypes_buffer(None if continuous else frames)
+        self._set_triggers_in_cfg(self._get_triggers_in_cfg()) # reapply trigger settings
         if continuous:
             lib.imgRingSetup(self.sid,len(cbuffs),cbuffs,0,0)
         else:
@@ -417,9 +431,12 @@ class IMAQCamera(interface.IDevice):
         if self._acq_params:
             self.stop_acquisition()
             lib.imgSessionAbort(self.sid)
-            self.clear_all_triggers()
             self._deallocate_buffers()
             self._acq_params=None
+    def _reset_acquisition(self):
+        """Clear the acquisition and set it up again with the same parameters"""
+        if self._acq_params:
+            self.setup_acquisition(*self._acq_params)
     def get_acquisition_parameters(self):
         """Return acquisition parameters ``(continuous, frames_buffer)``."""
         return self._acq_params

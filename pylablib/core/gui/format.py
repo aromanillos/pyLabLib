@@ -208,6 +208,18 @@ class IntegerFormatter(object):
     def __call__(self, value):
         return "{:d}".format(int(value))
 
+class FmtStringFormatter(object):
+    """
+    Formatter based on format string.
+
+    Callable object with takes a number as an argument and returns is string representation.
+    """
+    def __init__(self, fmt):
+        object.__init__(self)
+        self.fmt=fmt
+    def __call__(self, value):
+        return ("{:"+self.fmt+"}").format(value)
+
 def as_formatter(formatter):
     """
     Turn an object into a formatter.
@@ -221,6 +233,11 @@ def as_formatter(formatter):
         return FloatFormatter()
     if formatter=="int":
         return IntegerFormatter()
+    try:
+        ("{:"+formatter+"}").format(0)
+        return FmtStringFormatter(formatter)
+    except (TypeError,ValueError):
+        pass
     if isinstance(formatter,tuple):
         if formatter[0]=="float":
             return FloatFormatter(*formatter[1:])

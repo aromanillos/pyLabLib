@@ -149,7 +149,7 @@ class LVNumEdit(QtWidgets.QLineEdit):
         """
         Set numerical format
         
-        `kind` specifies the format kind (``"float"`` or ``"int"``), and the additional arguments are passed to the corresponding formatter.
+        `kind` specifies the format kind (``"float"``, ``"int"``, or a format string, e.g., ``".3f"``), and the additional arguments are passed to the corresponding formatter.
         See :class:`.format.FloatFormatter` and :class:`.format.IntegerFormatter` for details.
         """
         if kind=="float":
@@ -157,7 +157,11 @@ class LVNumEdit(QtWidgets.QLineEdit):
         elif kind=="int":
             formatter=format.IntegerFormatter()
         else:
-            raise ValueError("unknown format: {}".format(kind))
+            try:
+                ("{:"+kind+"}").format(0)
+                formatter=format.FmtStringFormatter(kind)
+            except ValueError:
+                raise ValueError("unknown format: {}".format(kind))
         self.change_formatter(formatter)
 
     def get_cursor_order(self):
